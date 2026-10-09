@@ -1,0 +1,222 @@
+# DECISIONS
+<!-- SUMMARY: dated log of setup and analytic choices for info-rate-context; setup entries only so far · status: development · updated: 2026-09-28 -->
+
+Format: `YYYY-MM-DD — Decision. Reason.` Choices made after seeing results are marked **[post hoc]**.
+
+## Setup
+
+2026-09-28 — Project placed at `papers/development/info-rate-context/`. It's an analysis project before a paper is shaped, which is what `development/` holds. Folder name kebab-case per house convention (the spec had `infoRate-context`).
+
+2026-09-28 — `SPEC.md` is the project brief; no separate `notes/project-brief.md`. No `main.tex` yet: the spec's write-up is `report.md`. If this becomes a paper, Quarto is the default (inline code keeps numbers from drifting).
+
+2026-09-28 — The spec's `decisions.md` is this file. macOS's case-insensitive filesystem can't hold both names.
+
+2026-09-28 — `data/ref/` is gitignored and filled by `src/fetch_ref.sh` at commit `f8f509b`. `gh api repos/keruiduo/SupplMatInfoRate` returned `license: null`, so redistributing `InfoRateData.csv` in a public repo isn't covered.
+
+2026-09-28 — Local git only; no GitHub remote. Decision owner: Brett. Reason: the licence question above, and nothing here needs to be public yet.
+
+## Corpus-awareness adjudication (setup)
+
+2026-09-28 — Inward check before setup found no governing neighbour. Searches run from the portfolio root: `find . -maxdepth 4 -type d` for `*inforate*`, `*info-rate*`, `*information-rate*`, `*coupe*` (none); `grep -i -E 'coup[eé]|information rate|info.?rate|39 bits|pellegrino'` over `PORTFOLIO.md`, `Project-Management/intellectual-map.md`, `papers/CLAIMS.md` (none); `lit resolve` on `coupe2019`, `pellegrino2011`, `pimentel2021`, the Coupé title and DOI (no match); central `references.bib` grep for Coupé, Pellegrino, Pimentel keys (only `pimentel_et_al_2020_information_theoretic_probing`, a different paper); `ls literature | grep` for the same names (only that 2020 paper). These are portfolio searches; they say nothing about the outside literature.
+
+2026-09-28 — `alternations-bayesian` (surprisal as a predictor of subordinator realization): **irrelevant** for now. Shared vocabulary (surprisal, information-theoretic predictors), different question and unit (a within-English alternation, not cross-linguistic rate).
+
+## Inputs
+
+2026-09-28 — Added `notes/elicit-audit-39-bits-critique-2026-09-28.md` (revised 22:04 version plus Elicit's summary; the 22:01 version is in git history), Brett's Elicit audit of the critique this spec grew from. The critique itself isn't saved locally (Brett: "There are no local files"). The audit's figures come from a recalculation file not available here, so they're treated as leads: Stage 1 table conventions (SPEC.md note under the table), source-verification rows 7 and 9–11, spec-review items 6–7.
+
+2026-09-28 — **Deferred** (corpus awareness): the critique is organised around what the 39 bits/s figure does and doesn't project to (Elicit's section headings include "What projects"). That's the projectibility framing of Brett's kinds and projectibility papers. Whether this project argues in those terms is open until a claim is formulated.
+
+## Stage 1
+
+2026-09-28 — Repo stays private for now: no public GitHub (Brett). Local git only; a private remote is a separate call.
+
+2026-09-28 — Stage 1 run on Brett's authorization. The spec's table reproduces to its stated precision (`results/stage1/stage1_reference_output.txt`): pooled figures over readings, language-level figures over speaker means then language means, sample SD. The Elicit audit's differing cells come from averaging each language directly over readings, which reproduces all of them exactly (39.247, 56.945, 8.448%, 10.645%, r = −0.834221, p = 3.14 × 10⁻⁵). The project keeps the spec's aggregation (speaker means first), since speakers are the sampled unit within a language.
+
+2026-09-28 — Row count: the released analysis uses all 2288 rows (`InfoRate.Rmd` lines 197–249, no exclusion) and computes the row-level r over them (line 678), which gives −0.688. The paper's reported 2265 rows and −0.71 (per the spec) are not reproduced by the released code; resolve from the paper before quoting either.
+
+## Source verification
+
+2026-09-28 — Sources filed in `literature/` with markdown companions: Coupé et al. 2019 (Europe PMC XML, no PDF; the PMC PDF is behind a proof-of-work bot check, not attempted further), its supplement, Pellegrino et al. 2011, Pimentel et al. 2021, the SLE 2024 slides, Bergey & DeDeo 2024, Trott 2020. The supplement's data file S1 and script are byte-identical to the GitHub copies, so the GitHub versions are the published ones.
+
+2026-09-28 — Every claim in the spec about the paper, Pellegrino et al. and the SLE talk checks out (`notes/source-verification.md`), with one correction: texts were translated from British English or French. Two discrepancies stay open and belong to the authors, not the spec: the paper states 2265 data points and a row-level Pearson r of −0.71, while the authors' own compiled report gives 2288 observations and −0.6880138 (its Spearman, −0.6999614, matches the paper's −0.70). Don't quote either paper figure without saying which.
+
+2026-09-28 — The paper's model is less naive than "pseudoreplication" implies: the SR ~ ID fit keeps text, speaker and family random effects. What it drops is the language-level residual. Stage 8's reason stands in narrower form.
+
+2026-09-28 — The 15 texts in all 17 languages are printed in SM Text S3. The Stage 3 unit-consistency check (pipeline syllable counts against NS per text) can use them without waiting on the authors, and the author email, if sent, narrows to the canonical transcriptions, the syllabified corpora or syllabifier, and the 2265 / −0.71 question.
+
+2026-09-28 — Supplement licence: the paper says the data and code are "freely available under an open-source license in the Supplementary Materials and in the GitHub repository", but neither the GitHub repo nor the supplement archive names one. `data/ref/` stays gitignored.
+
+## Author correspondence
+
+[withheld: from private correspondence with the paper's authors]
+
+[withheld: from private correspondence with the paper's authors]
+
+[withheld: from private correspondence with the paper's authors]
+
+[withheld: from private correspondence with the paper's authors]
+
+[withheld: from private correspondence with the paper's authors]
+
+[withheld: from private correspondence with the paper's authors]
+
+## Working defaults from the spec review (2026-10-08)
+
+Recommended in `notes/spec-review-2026-09-28.md`, adopted as working defaults so later stages have a plan. Not separately confirmed by Brett. Each is reversible until Stage 5 runs; Brett can veto by item number.
+
+- Item 1: add rung **1b** (previous syllable across boundaries plus a word-initial flag) and give every higher rung the flag; keep rung 1 as the segmenter-free variant. This changes what the deliverable curve is, so it most needs Brett's explicit word.
+- Item 2: held-out cross-entropy at every rung, including 0 and 1w; plug-in estimates only for the Stage 4 validation.
+- Item 3: equal syllable-token training budgets across languages, out-of-vocabulary rates reported, the curve rerun at a second budget; learning-curve plateau checked for the cross-entropies at k = 3 and 4.
+- Item 4: define R_k on SDs of logs and report v_k and r_k beside it.
+- Item 5: compare rungs with a paired bootstrap over languages (R_k − R_1w within each resample).
+- Item 7: compute segments per syllable both type- and token-weighted.
+- Item 8: add log syllable-inventory size as a Stage 7 predictor.
+- Item 9: exact-source Stage 4 check for ENG, DEU (WebCelex) and FRA (Lexique), subject to access and licence terms.
+
+## Stage 3 and Stage 2 groundwork (2026-10-08)
+
+[withheld: from private correspondence with the paper's authors]
+
+2026-10-08 — OPUS OpenSubtitles v2024 covers all 17 languages, but its `yue` file is Standard Written Chinese (`results/stage2/README.md`). OpenSubtitles can't serve as the Cantonese source. Options for Stage 2: a written-Cantonese corpus (the paper used "A linguistic corpus of mid-20th century Hong Kong Cantonese", SM Table S2), or analysing YUE separately with its own source and flagging it. Not decided.
+
+[withheld: from private correspondence with the paper's authors]
+
+2026-10-08 — Item 1 settled (Brett): rung 1b runs in both forms, free (word-initial flag as context) and charged (boundaries predicted and their bits counted), alongside rung 1 with no boundaries. The three estimate H(S), H(S | B) and H(S, B), so their differences give I(S; B) and H(B | S) per language. Rationale: Gelman & Loken (2014), analyse all relevant comparisons. Decision owner: Brett; Claude had recommended the free form alone.
+
+2026-10-08 — Working defaults confirmed (Brett): spec-review items 1–5 and 7–9 are now project decisions, with item 1 as amended above (rung 1, 1b-free and 1b-charged). Decision owner: Brett.
+
+2026-10-08 — Cantonese source: option B (Brett). Main run on OpenSubtitles v2024 for 16 languages, with YUE from Cantonese Wikipedia (`zh_yuewiki`, bot stubs filtered) and flagged as a different genre; main curve reported with and without YUE. Second run on Wikipedia for all 17 languages, so one full run has a single source type. Stub filtering rule to be fixed and logged before any YUE entropy is computed. Decision owner: Brett.
+
+## Prior-work check and disk budget (2026-10-08)
+
+2026-10-08 — Spec review item 6, the outward check for an existing extension, done before any Stage 2 download (`notes/prior-work-check-2026-10-08.md`). Searched all 245 works that OpenAlex and Semantic Scholar list as citing Coupé et al. 2019 (list in `notes/prior-work-check-2026-10-08-citing-works.tsv`), plus seven web searches, with the queries and screens recorded in the note. No work found that recomputes the 17-language ID with cross-word or long-context models and re-evaluates rate compression. The claim covers the indexed citing works and those searches, not unindexed preprints or work that doesn't cite the 2019 paper.
+
+2026-10-08 — Neighbours from the check (corpus awareness, outward). Oh & Pellegrino (2023, *Studies in Language* 47(4), Word Information Density on 47 languages, a reported trade-off between word-internal and across-word information): **deferred**, to be read in full before Stage 5, since it bears on the step from rung 1w to 1b; the repository copy sits behind a bot check, so Brett's browser is the route. Koplenig et al. (2025, *PLOS Complex Systems*, entropy rate against text length in 2,000+ written languages): **deferred**, as a framing neighbour for the write-up. The authors' SLE 2024 measure (GPT-2 surprisal of English translations): **deliberately distinguished**, because it measures the translations' content, not each language's own syllable sequence, which is what this project's ladder conditions on.
+
+2026-10-08 — Disk budget (Brett: don't plan to max out the drive). Stage 2 never downloads a whole release: OpenSubtitles documents are fetched one at a time by HTTP range request from the OPUS raw zips, and each is normalised and stored as compressed text before the next is fetched, with no raw XML kept. Ceiling for the project's `data/`: 10 GB. Every fetch script checks free space first and stops if it would fall below 40 GB. Working default; Brett can change either number.
+
+## Stage 2: OpenSubtitles sampling and normalisation (2026-10-08, before any fetch)
+
+Logged before the fetcher runs. Brett chose to run everything locally (2026-10-08). The filters will be checked on Basque by reading what they reject before rollout; any revision made then is dated and marked **[post hoc, filters]**. That's post hoc with respect to the cleaning, not to any entropy, since none will have been computed.
+
+2026-10-08 — Source: OPUS OpenSubtitles v2024, `raw/<code>.zip` (untokenised sentences in XML, one file per subtitle upload), for the 16 languages other than YUE. Each zip's URL, ETag, Last-Modified and size go in `results/stage2/manifest/opensubtitles_zips.tsv`. Members are fetched singly by HTTP range request and checked against the zip's CRC32. No zip is downloaded whole, and no raw XML is kept.
+
+2026-10-08 — Unit: the folder above each file (`<year>/<id>/`). A film's folder is its IMDb id. A TV episode's folder is `<episode>_<series>_<season>_<episode no.>`, and its group is the series id, so the Stage 5 split by document keeps every episode of a series on one side. One subtitle file per folder: the lowest-numbered file of at least 10,000 bytes (a content-blind rule, set from the zip directory, which also skips the empty files found in `ja`); if it fails the document filters, the next one, at most three tries.
+
+2026-10-08 — Sample: folders shuffled with seed 20261008 and taken in that order until the language's normalised text reaches 200 MB of UTF-8, or the folders run out. Basque (1,137 folders) and Catalan (1,602) are taken whole. Reason for 200 MB: Basque's whole release is about 40–50 MB of text (estimate), the training budget can't exceed the smallest language's syllable count, and 200 MB stays above Basque's syllable count even in Thai script, where bytes per syllable are highest. Sixteen languages at 200 MB fit the 10 GB ceiling with room for Wikipedia and the syllabified files. Output: `data/raw/opensubtitles/<LANG>.tsv.gz` (group, folder, file, line, text); per-document manifest with counts per filter in `results/stage2/manifest/`.
+
+2026-10-08 — A line is one OPUS `<s>` sentence. N-gram contexts don't cross lines (the standard sentence-level setup for k ≤ 4); the optional neural rung may use whole documents.
+
+2026-10-08 — Document filters: drop if `<machine_translated>` is 1; drop if OPUS's `<confidence>` for the language is present and below 0.9; drop if fewer than 50 lines survive; for Latin-script languages, drop if more than 20% of lines fail the letter check below (that rate signals a mis-encoded file).
+
+2026-10-08 — Line normalisation, in order:
+1. Text of the `<s>` element with `<time>` removed; NFKC; Unicode format characters (category Cf: direction marks, zero-width spaces, soft hyphens) removed; whitespace collapsed.
+2. Encoding repairs where the wrong code page left letters foreign to the orthography: SRP è æ ð → č ć đ (and capitals), cp1250 read as cp1252, seen in the sample; TUR ý þ ð → ı ş ğ (and capitals); HUN õ û → ő ű (and capitals). Then SRP Cyrillic transliterated to Latin. The authors' Serbian texts are in Latin script, and Cyrillic to Latin is deterministic.
+3. Markup removed: `<...>`, `{...}` (ASS and MicroDVD codes), backslash override codes, and bracketed or parenthesised text (sound cues, translator notes).
+4. Line dropped if it contains ♪ ♫ ♬ or # (song lyrics).
+5. Leading speaker labels in capitals followed by a colon removed (Latin scripts); leading dashes and dash turn separators removed.
+6. Line dropped if it contains a URL, domain or e-mail address; within the first and last 20 lines of a document, also dropped if it contains a credit word (subtitle, translation, sync and their equivalents in the 16 languages).
+7. Line dropped if it contains a digit. Spoken forms of numbers vary and would need a converter per language; the share dropped is reported. The read texts' digits are a separate Stage 3 conversion.
+8. Letter check: line dropped if any letter is outside the language's inventory (for Latin scripts, a–z plus that orthography's letters, with acute vowels allowed in EUS for Spanish names; JPN kana and kanji; CMN Han only; KOR Hangul only; THA Thai only). This removes Latin-letter lines from the CJK, Korean and Thai files, including the English half of bilingual Chinese subtitles.
+9. Latin-script languages other than ENG: line dropped if `lingua-language-detector` 2.2.0, comparing only the target language and English, gives English 0.9 or more (lingua's Croatian model stands in for Latin-script Serbian). English is the main contaminant (untranslated lines).
+10. Line dropped if no letters remain.
+
+2026-10-08 — Known gap: OpenSubtitles `sr` may include Bosnian, Croatian or Montenegrin uploads. No variety filter is applied; the share of ijekavian forms may be measured later.
+
+2026-10-08 — Environment: `.venv` (Python 3.12, uv) with `lingua-language-detector` 2.2.0, checked on PyPI 2026-10-08.
+
+2026-10-08 — Correction to the line entry above. Whether n-gram contexts stop at each subtitle line is a Stage 5 modelling choice, and it was logged as settled without Brett's word (a side agent flagged it). Subtitle lines are short, so a line-bounded model leaves many syllables with truncated context at k = 3 and 4, and differences in typical line length between languages could move R_k on their own. Settled under Brett's standing instruction "always ask, what would Gelman do?" (2026-10-08): **run both and report both.** Every rung from k = 1 up is estimated twice, once bounded at each line (each subtitle sentence, each Wikipedia paragraph) and once running across lines within a document. The cross-line variant is listed first, because the read texts behind SR are continuous passages; neither is chosen after seeing results. Stage 2 keeps every document's lines in order with their original OPUS sentence positions, so gaps left by dropped sentences are visible and both variants can be built from the same files. Rationale: Gelman & Loken (2014), analyse all relevant comparisons. Mean line length per language goes in the Stage 2 summary.
+
+2026-10-08 — Standing heuristic (Brett): at every analytic fork, ask what Gelman would do. In practice: where a defensible choice could move the result, run the alternatives and report them side by side rather than picking one; fix in advance which comparisons are reported; prefer partial pooling to dropping or splitting groups; check models against data (posterior predictive checks) rather than against thresholds.
+
+2026-10-08 — **[post hoc, filters]** Revisions after reading what the filters rejected on Basque (`data/interim/stage2_rejects/EUS.tsv`, 300-line samples per filter), before any entropy was computed. (1) The English filter dropped 11,117 Basque lines, and in the sample most were names alone ("Josh!", "Alice!") or Basque lines containing an English name ("Bai, Billy.", "Tony Bennett zalea zen."). Names stay in every other language's text, so the filter was removing them only in the Latin-script languages. It now tests only lines of four or more words that contain at least one English function word that isn't also common in the 16 languages (`EN_WORDS` in `src/stage2_opensubtitles.py`; *he, so, was, will, on, me, i, to, do, a, no* are left out), with the same lingua threshold. On eight sampled lines it drops the three English ones and keeps the five Basque ones. (2) Control characters (category Cc, cp1252 punctuation read as C1 codes, 75 in kept Basque text) are removed with the format characters. (3) ¶ counts as a song marker, like ♪ (219 in kept Basque text). (4) A line containing U+FFFD (a decoding failure) fails the letter check. The rest held up: the credit filter caught the Basque Government's subtitle credits, the letter filter (824 lines) caught foreign names with diacritics and mojibake, the digit filter (23,288 lines, 2.0%) caught numbers.
+
+2026-10-08 — **[post hoc, filters]** The OPUS confidence filter isn't applied to Serbian. In the first 30 sampled `sr` folders, 28 files carried `<confidence>0.5</confidence>`, which is OPUS's identifier splitting between Serbian and Croatian or Bosnian, not a sign of another language, and the filter was dropping nearly all of them. The other 15 languages keep the filter; their confidence distributions are checked in the manifests. Serbian files whose text was double-encoded UTF-8 ("Ä†ao" for "Ćao") lose those lines to the letter check, or the whole file to the 20% letter-rate rule.
+
+## Stage 3: scope of the unit-consistency check (2026-10-08, before any syllable count)
+
+[withheld: from private correspondence with the paper's authors]
+
+## Stage 2: Wikipedia source (2026-10-08)
+
+2026-10-08 — Wikipedia source for the YUE main-run corpus and the all-17 second run: Hugging Face `wikimedia/wikipedia`, snapshot 20231101 (configs `20231101.<code>`: vi, eu, ca, de, en, fr, it, es, sr, ja, ko, zh for CMN, zh-yue for YUE, th, tr, fi, hu). Decision owner: Brett. Reason: plain text with page ids, cleaned the same way for all 17 languages, so no wikitext parser has to be chosen and validated. This amends the Cantonese entry's "`zh_yuewiki` dump": the snapshot is derived from the 2023-11-01 dumps, not the 2026-10-01 ones. Checks before sampling: whether rows are stored in page-id order (if so, sampling whole shards is biased by article age), and the mix of traditional and simplified script in `zh`. The stub filter is fixed and logged before any entropy, and applies to all 17.
+
+2026-10-08 — Oh & Pellegrino (2023) read in full (`notes/prior-work-check-2026-10-08.md`). Adjudication updated from **deferred**: its measures are **deliberately distinguished** (a translation length ratio and a word-order compression index on Bible text, not syllable conditional entropy within each language); its result is **adopted** as the source of a directional expectation, stated here before any Stage 5 estimate. Expectation: from rung 1w to rung 1b (both forms) and on to k = 2, the isolating languages (VIE, CMN, YUE, THA) lose more bits per syllable than the agglutinative ones (FIN, HUN, TUR, EUS). It is reported as a comparison of the two groups' mean drops with a bootstrap interval over languages, not as a significance test. The spec's Stage 6 already names this contrast; this entry fixes its direction in advance. Koplenig et al. (2017, *PLoS ONE* 12(3): e0173614), cited there for the same trade-off on more than 1,000 languages: **deferred**, not in `literature/`.
+
+2026-10-08 — Wikipedia stub rule approved as proposed (Brett; `notes/wikipedia-stub-rule-proposal.md`). For all 17 Wikipedia samples: prose lines only (ending in sentence-final punctuation; Thai gets its own line rule, fixed after inspecting Thai data and before any Thai entropy); an article is dropped if 0.5 or more of its prose 8-grams (digits masked, 1 in 4 kept by a stable hash) occur in at least 20 articles of the language's sample; every Wikipedia sample is also run at a 0.3 threshold and both are reported. Measured on YUE before approval: the 0.5 threshold drops 28% of articles and 4% of prose characters, leaving 23.5M. Decision owner: Brett.
+
+2026-10-08 — **[post hoc, filters]** Revisions after reading the Thai and Japanese output, before any entropy. (1) NFKC decomposes Thai sara am (U+0E33) into nikhahit plus sara aa, so every ำ in the Thai sample came out as ํา ("ตําแหน่ง"); sara am is now recomposed after NFKC, matching the read texts and Thai tools. (2) Escaped HTML entities are unescaped before anything else, and remnants that lost their "&" (lrm; rlm; nbsp;) are removed: in Thai they made the letter check drop good lines ("ไม่ว่าลืมตาหรือหลับตา lrm;"), and in Serbian 634 of 7.3M kept lines carried "&apos;" and the like as fake letters. (3) A line with a private-use character (Unicode category Co) fails the letter check: legacy Thai fonts put shifted tone marks in U+F700–F71A (376 kept Thai lines, 1 Japanese), and mapping them back would need a sourced table. THA and SRP are re-run under the fixed code, and the partial KOR run, begun under the old code, is discarded rather than resumed. EUS, CAT and JPN had no entity remnants; JPN's one private-use line is left as is.
+
+2026-10-08 — Corpus terms recorded in `config/languages.yaml`, **late**: the project rule is to check each licence before download, and the OpenSubtitles fetch began without it (side agent flagged it; the advisor had raised it earlier). OPUS OpenSubtitles v2024 names no licence; OPUS asks for a link to opensubtitles.org in reports and publications and a citation of Lison & Tiedemann (2016), and takes material down on copyright claims. Consequence: the cleaned subtitle text is never redistributed, and the data statement offers manifests and code to rebuild the sample. Wikipedia 20231101 (Hugging Face) is CC BY-SA 3.0 and GFDL, redistributable with attribution and share-alike. Nothing found forbids the research use, so the fetch continues. The paper needs the opensubtitles.org link and the Lison & Tiedemann citation.
+
+2026-10-08 — Wikipedia fetcher (`src/stage2_wikipedia.py`), implementing the approved stub rule. Unit choices that follow from it: a Wikipedia "line" for the n-gram models is a sentence within a prose paragraph (split after 。！？!? in CMN, YUE and JPN, after . ! ? … plus a space elsewhere, but not after an ordinal such as "1300."), parallel to the subtitle sentence; the 8-gram subsample uses a stable 64-bit key built from two CRC32s, the cheaper of the two stable hashes the proposal named; the subtitle code-page repairs aren't applied to Wikipedia, which is native UTF-8. Tokens with a digit, and runs of letters outside the language's inventory, are replaced by a gap marker (⟂) rather than dropping the sentence, because in YUE 35% of prose sentences contain a digit (42% of characters) against 2–4.5% of subtitle lines; how gaps are treated is open (STATUS.md).
+
+2026-10-08 — YUE Wikipedia sample: all 135 row groups, 134,140 articles; 7,021 without a prose line, 30,760 dropped at template share 0.5 (23%), 96,359 kept with 534,344 sentences and 19.9M characters (57.0 MB; 55.9 MB at the 0.3 arm). 42% of kept sentences contain a gap: dropping them keeps 10.9M characters (55%); splitting at them gives 992,312 segments averaging 20 characters.
+
+2026-10-08 — **[post hoc, filters]** Wikipedia sentence splitting, before any entropy. The first splitter cut sentences after ordinals: a digit before the full stop ("1300. urtean", "13. März") was handled before the first Basque run, but Roman-numeral ordinals and initials weren't ("XIX. mendean", "II. Mundu Gerran", "J. R. R. Tolkien"): 15,101 cut sentences in the Basque sample, 14,832 after a Roman numeral. A piece that ends in a number, a Roman numeral or a single capital followed by a full stop is now rejoined to the next. This matters to the pre-stated isolating-versus-agglutinative contrast, since ordinal dots occur in EUS, FIN, HUN and TUR (and DEU, SRP) but not in VIE, CMN, YUE or THA (a side agent raised the unevenness). The Basque Wikipedia sample is discarded and re-fetched.
+
+2026-10-08 — The approved stub rule fails outside CJK. On the first Basque run (225,347 articles from 227 row groups) it dropped 219,674 articles (97.5%): in an alphabetic script an 8-character window is about a word and a half, so nearly every window occurs in 20 or more articles of a large sample. In YUE a character is about a syllable and the rule behaved as measured. Proposed revision, awaiting Brett: 8-character windows where a character is roughly a syllable (CMN, YUE, JPN, KOR), 24-character windows elsewhere (Latin scripts, Thai); every other part of the rule unchanged. On the Basque cache, 24-character windows drop 52% of articles and 25% of prose at 0.5 (56% and 25% at 0.3), and word 4-grams give nearly the same (52%, 24%). The dropped articles sampled are bot templates (species, places in the United States, English parishes, minerals, German municipalities); those under 0.2 are human-written. Until Brett decides, pass 2 runs only for CMN, YUE, JPN and KOR (`PASS2_OK` in `src/stage2_wikipedia.py`).
+
+## Decisions approved by Brett, 2026-10-08 (evening)
+
+2026-10-08 — Stub rule revision approved (Brett): template-share windows are 8 characters for CMN, YUE, JPN and KOR, where a character is roughly a syllable, and 24 characters for the Latin-script languages and Thai. The rest of the rule stands (prose lines, digits masked, 1 in 4 kept by a stable hash, 20-article floor, 0.5 main and 0.3 second arm). Decision owner: Brett.
+
+2026-10-08 — Wikipedia gap treatment approved (Brett): main arm splits sentences at each gap (a removed token with a digit or out-of-inventory letters), so no context crosses it; second arm drops every sentence containing a gap, the rule the subtitles were cleaned under. Both reported. Decision owner: Brett.
+
+2026-10-08 — Training-budget plan approved (Brett): (a) main analysis at the common budget B set by the smallest language; (b) the planned second run at B/2; (c) a run at 3B for every language that reaches it, with (a) recomputed on that subset so budget and language set aren't confounded; (d) the plateau check reported per language and rung, a failing rung flagged as data-limited, not dropped. The Wikipedia run is a further check at a different budget; Basque isn't set apart. Decision owner: Brett.
+
+2026-10-08 — Stage 3 unit-convention rule and the Japanese and Thai plans approved (Brett) as written in `notes/stage3-proposal-units-jpn-tha.md` (commit df7d182, 2026-10-08 20:50 EDT, before any pipeline syllable count or NS ratio): grouping conventions chosen by the median per-text ratio to NS on primary texts, ties within 0.01 kept as arms, the ratio then reported as a calibration; accent and stress labels settled by the Stage 4 ShE comparison (WebCelex with and without stress for ENG and DEU); research-question forks run at every rung, unit conventions get one main convention plus a sensitivity row for the headline R_k. Decision owner: Brett.
+
+2026-10-08 — **[post hoc, filters]** Vietnamese: some subtitle files write Đ/đ with the look-alike eth Ð/ð (U+00D0, U+00F0), so the letter check dropped valid lines ("Ðể sau đi."): 43 of 300 sampled letter rejects, about 450 of 5.25M lines, plus 3 files lost to the letter-rate rule. Eth is now mapped to d-bar for VIE in both fetchers (Vietnamese has no eth), and the VIE subtitles are re-fetched so the sample comes from one code version.
+
+2026-10-08 — Cantonese cleaning in the main comparison (Brett; option C): YUE enters the main subtitle comparison under the drop rule (every sentence containing a gap dropped, 10.9M characters), the rule applied to the 16 subtitle languages; YUE under the split rule (19.9M characters) is reported as a sensitivity row. The all-Wikipedia run keeps split as main and drop as second arm for all 17. Raised by a side agent. Decision owner: Brett.
+
+2026-10-08 — Budget with and without YUE (Brett): the main curve with YUE and the curve without YUE use the same common budget B, set by the smallest language including YUE, so the two curves differ only in whether YUE is in them. Decision owner: Brett.
+
+2026-10-08 — Thai Wikipedia prose-line rule approved (Brett), from two random row groups (36,782 lines): a line is prose if it has at least 80 Thai characters and doesn't begin with an infobox marker (| { }), which keeps 73% of Thai characters (lines under 40 characters are headings, categories, infobox fragments and taxon names; 40 to 80 mostly list items; 80 and up mostly prose). Prose lines are split at spaces, Thai's sentence and clause break, into the units used as lines. Sensitivity row: the same at 150 Thai characters (62% of Thai characters), written separately as `THA-p150` with template shares recomputed on that subset. Thai units will be shorter than other languages' sentences, since Thai also spaces around conjunctions in lists; mean unit length is reported. Decision owner: Brett.
+
+2026-10-08 — **[post hoc, filters]** Hungarian: ô also stands in for ő in some subtitle files ("kôrházban"), 72 of 300 sampled letter rejects, about 980 of 6.94M lines (0.01%); mapped ô→ő for HUN (Hungarian has no ô) and HUN re-fetched after VIE, as for the Vietnamese eth. Policy from here on: a look-alike or code-page residue that costs under 0.1% of a language's lines is logged as known residue, not fixed by re-fetching; fixes above that threshold are re-fetched.
+
+2026-10-08 — Letter-check losses measured from the subtitle manifests (lines dropped by the letter check in kept files; sentences in files dropped by the 20% letter-rate rule): CAT 0.23%/0; DEU 0.36%/0.57% (50 files); ENG 0.31%/0.08%; EUS 0.07%/0; HUN 0.06%/0.02%; SRP 0.08%/0.05%; TUR 0.09%/0.00%; VIE 0.06%/0.04%; JPN 1.90%, KOR 1.93%, THA 0.78%, CMN 9.41% (mostly genuine Latin-script text, such as English halves of bilingual subtitles). German's files are double-encoded UTF-8 ("drÃŒben" for "drüben"). Not repaired (an `ftfy` pass would mean re-fetching all 16 languages): the damage depends on the uploader's software, not the text, and the 200 MB cap replaced dropped files with later films in the shuffled order, so no language is short and the sample isn't skewed. The re-fetch policy above is sharpened accordingly: re-fetch when a loss depends on content or leaves a language short of its cap, not on a percentage alone. Brett may override.
+
+2026-10-08 — **[post hoc, sampling]** One file per film, enforced across year folders. An integrity check of every sample (`src/stage2_check.py`) found folders taken twice in CMN, DEU, FIN, ITA and KOR. Two causes: OPUS files a subtitle without an IMDb id under the placeholder folder 4294967295 (2^32 − 1), so unrelated films share it, one per year folder; and a film is sometimes filed under two years (FIN 673507_66701_1_17 under 1971 and 1972). The sampling rule now skips the placeholder folder (film identity unknown, so neither one file per film nor the film-level split can be guaranteed) and any film id already taken, the first in the existing shuffled order winning. The shuffle order is unchanged, so languages with neither case in their sample are byte-identical under the new rule (EUS, FRA, SPA, SRP, THA, TUR, VIE); the eight with placeholders or repeats (CMN, DEU, ENG, FIN, HUN, ITA, JPN, KOR) and CAT (interrupted mid-re-fetch) are re-fetched. EUS, CAT and JPN were also re-fetched under the final normaliser, since their first samples predate the entity, private-use and sara am changes.
+
+## Timestamped record (2026-10-09)
+
+2026-10-09 — Status at the first timestamped snapshot: Stages 1 and 2 done; Stage 3 not started. No pipeline syllable count, no ratio to NS, and no entropy or cross-entropy of any corpus has been computed. The decisions above, including the Stage 3 convention rule, the training-budget plan and the isolating-versus-agglutinative expectation, were made before any such figure existed. Snapshots of the decision record are timestamped with OpenTimestamps (Brett, option C, 2026-10-09) and cited by their SHA-256, not by commit id, because the history will be rewritten before the repo goes public; an OSF registration with the correspondence paraphrases removed follows.
+
+2026-10-09 — First snapshot timestamped: `prereg/snapshot-2026-10-09.tar.gz` (21 files listed in `prereg/snapshot-2026-10-09.files`; SPEC, DECISIONS through the entry above, STATUS, config, notes, src; no `private/`, no data), SHA-256 `38ee5150dee1ff71e13a9f1c3a66446944809b54b4df3444fb9f3765bb3b0d34`, submitted 2026-10-09 10:15 UTC to four OpenTimestamps calendars (opentimestamps-client 0.7.2). The proof (`.ots`) completes once a Bitcoin block includes it; no ratio to NS is computed until `ots upgrade` reports a Bitcoin attestation. The archive is kept in the repo because verification needs its exact bytes; `prereg/make_snapshot.py` rebuilds it from the same files.
+
+2026-10-09 — Pre-registration scheme (`prereg/README.md`), refining option C: an OpenTimestamps snapshot at each milestone (before NS ratios, now; when the Stage 3 conventions are chosen; before any Stage 5 entropy), and one embargoed OSF registration by Brett at the Stage 5 gate, when every analysis decision is in place, with correspondence-derived passages withheld unless the authors agree. Reason: an OSF registration is frozen once made, and the analysis decisions aren't complete until Stage 5.
+
+2026-10-09 — Public counterpart timestamped, because proving a date means showing the exact stamped file and the full snapshot paraphrases the authors' emails (side agent). `prereg/public-snapshot-2026-10-09.tar.gz`, built by `prereg/make_public_snapshot.py` from the tracked record at commit c5825cd with every sentence or clause recording private correspondence replaced by a "withheld" marker (24 withheld; found by neutral keywords; checked by unpacking and grepping for leaks), SHA-256 `ce69d6d618f72d99fcf54690de4c04d0b1b0a4d361eaaa37abef5a890ebff4c0`, submitted 2026-10-09 10:21 UTC to four OpenTimestamps calendars. This is the snapshot to show publicly; the full one (10:15 UTC) can be shown to an editor in confidence. Both precede any ratio to NS.
+
+[withheld: from private correspondence with the paper's authors]
+
+## Personal communication cleared for citation (2026-10-09)
+
+<!-- cleared: personal communication permitted 2026-10-09 -->
+2026-10-09 — The paper's 2265 data points: the dataset analysed at the paper's initial submission had 2265 data points; the revised and final analyses use 2288, as in the released CSV and the compiled analysis report, and the figures in the main text weren't updated (F. Pellegrino, personal communication, October 2026). Cite 2288 rows. Separately, and not part of that explanation: the paper's reading-level r = −0.71 isn't what the released code computes on the 2288 rows (r = −0.688, as the compiled report prints), so cite −0.688 and note the paper's figure. Permission to cite the explanation as a personal communication was given in October 2026; it covers that explanation only.
+
+2026-10-09 — The full snapshot's proof is complete: `prereg/snapshot-2026-10-09.tar.gz.ots` is attested in Bitcoin block 970616, mined 2026-10-09 10:17:51 UTC (Merkle root ffb737232aa7de09e34d85e558e99026c598d3e7574f0f92147889ed50b5fc68, checked against blockstream.info). The full decision record therefore existed by that time. The hold on ratios to NS continues until the corrected public snapshot is stamped and anchored, so that the public proof also predates them.
+
+## Restated for the public record (2026-10-09)
+
+Decisions whose original entries are withheld from the public record, because those entries mix them with correspondence, are restated here without it. The originals are in the full record timestamped 2026-10-09 (Bitcoin block 970616); these restatements are dated today, still before any ratio to NS.
+
+<!-- cleared: restated without correspondence 2026-10-09 -->
+2026-10-09 — Restatement of the Stage 3 convention rule (approved 2026-10-08; `notes/stage3-proposal-units-jpn-tha.md`, §1). Conventions that change how segments or morae group into syllables (Japanese long vowels, the moraic nasal, geminates, vowel sequences; Korean resyllabification; French schwa) change a text's syllable count, so they are chosen against NS, the CSV's count of syllables in each text's canonical pronunciation (paper, Methods; one value per language and text, checked on all 255). For each language with two or more candidate groupings, the ratio of pipeline syllables to NS is computed on each primary text; the main convention is the one whose median ratio is closest to 1, and every candidate's median and per-text range is reported; candidates within 0.01 of the best are both kept as arms; for a language where NS chose the convention, its ratio is reported as a calibration, not as an independent check of unit consistency. Conventions that only label syllables (pitch accent, lexical stress) leave the count unchanged and are decided in Stage 4 against the published ShE, with WebCelex's stress marks for ENG and DEU.
+
+<!-- cleared: restated without correspondence 2026-10-09 -->
+2026-10-09 — Restatement of the Stage 3 scope of the unit-consistency check (decided 2026-10-08). Digits occur in 10 of the 15 read texts (phone numbers such as 762 584, clock times, dates, house numbers, counts), and Latin letters in YUE (O1 *D*, *la*; P8 *bing*, *bang*, *o*) and once in JPN (P3 *L*). The paper doesn't say how such tokens were read when NS was counted, and choosing readings by comparing counts with NS would fit the check to its own target. The check therefore runs both ways: primary, each language's texts with no digit and, for CMN, YUE, JPN, KOR and THA, no Latin letter (7 to 15 texts per language; P1, P9, Q0 and Q1 qualify in all 17); secondary, all 15 texts, with digits and letters expanded by reading conventions fixed per language before any count is compared with NS. The per-language ratio of pipeline syllables to NS is reported for both.
+
+<!-- cleared: restated without correspondence 2026-10-09 -->
+2026-10-09 — Restatement of the read-text entry (2026-10-08). The 255 read texts (15 × 17) are extracted from SM Text S3 to `data/ref/texts.tsv` by `src/extract_texts.py`, with two repairs of PDF artefacts: line-wrap spaces removed in CMN, YUE and JPN, and Thai sara am rebuilt where the extraction split it. Since NS counts the syllables of the canonical pronunciation, digits and Latin letters in the texts need spoken forms before counting (scope above).
+
+2026-10-09 — The Elicit audit (`notes/elicit-audit-39-bits-critique-2026-09-28.md`) is left out of the public record (Brett): it is raw output from an AI tool, an input rather than a decision, and some of its claims failed in Stage 1 (the SD-convention claim among them). It stays in the private repository and in the full snapshot. `prereg/make_public_snapshot.py` excludes it.
+
+[withheld: from private correspondence with the paper's authors]
+
+<!-- cleared: restated without correspondence 2026-10-09 -->
+2026-10-09 — The public snapshot stamped at 10:21 UTC (`ce69d6d6…c4c0`) is superseded and won't be published: the filter that built it withheld sentences that named the correspondence but missed paraphrases that didn't. The first published public snapshot is `public-snapshot-2026-10-09-r3`, built after a separate read-only agent audited the redacted text against the correspondence, in three passes; its SHA-256 is listed in the public repository's README and in `prereg/README.md`.

@@ -1,0 +1,60 @@
+# One entry per language (ISO 639-3), per SPEC.md Stage 3.
+# Fill each field before running that language; log the choice in DECISIONS.md.
+# Fields: corpus (source, version, licence), g2p, syllabifier, word_segmenter,
+# tone_or_accent, versions, settings, rationale (one line).
+
+# Corpus sources and their terms, checked 2026-10-08 (after the subtitle fetch had
+# begun; see DECISIONS.md). Quoted from the sources named in `terms_source`.
+corpora:
+  opensubtitles: &opensubtitles
+    source: OPUS OpenSubtitles v2024, raw zips (https://object.pouta.csc.fi/OPUS-OpenSubtitles/v2024/raw/<code>.zip)
+    version: v2024
+    licence: none stated
+    terms: >
+      OPUS names no licence. Its page asks: "If you use the OpenSubtitle corpus: Please,
+      add a link to http://www.opensubtitles.org/ to your website and to your reports and
+      publications produced with the data!" and asks users to cite Lison & Tiedemann (2016),
+      OpenSubtitles2016, LREC 2016. OPUS takes down material on legitimate copyright
+      claims. The subtitle texts belong to third parties, so the cleaned text is not
+      redistributed; manifests (folder ids, file ids, SHA-256) and code are, so the sample
+      can be rebuilt.
+    terms_source: https://opus.nlpl.eu/legacy/OpenSubtitles.php (read 2026-10-08); the zip INFO member names only corpus and version
+  wikipedia: &wikipedia
+    source: Hugging Face wikimedia/wikipedia, snapshot 20231101 (configs 20231101.<code>)
+    version: "20231101"
+    licence: CC BY-SA 3.0 and GFDL
+    terms: >
+      "All original textual content is licensed under the GNU Free Documentation License
+      (GFDL) and the Creative Commons Attribution-Share-Alike 3.0 License. Some text may be
+      available only under the Creative Commons license". Redistribution needs attribution
+      and the same licence.
+    terms_source: https://huggingface.co/datasets/wikimedia/wikipedia README (license field and Licensing Information, read 2026-10-08)
+
+_template: &blank
+  corpus: null
+  g2p: null
+  syllabifier: null
+  word_segmenter: null
+  tone_or_accent: null
+  versions: {}
+  settings: {}
+  rationale: null
+
+# Main run: OpenSubtitles for 16 languages, Wikipedia for YUE; second run: Wikipedia for all 17.
+VIE: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+EUS: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+CAT: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+DEU: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+ENG: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+FRA: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+ITA: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+SPA: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+SRP: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+JPN: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+KOR: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+CMN: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+YUE: {<<: *blank, corpus: [*wikipedia]}
+THA: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+TUR: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+FIN: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
+HUN: {<<: *blank, corpus: [*opensubtitles, *wikipedia]}
