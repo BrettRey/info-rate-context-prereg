@@ -25,6 +25,8 @@ Prior-work check (spec review item 6), done 2026-10-08 before any download: none
 
 ## Next action
 
+**Pre-registration:** the decision record is timestamped and published, with correspondence withheld, at https://github.com/BrettRey/info-rate-context-prereg (r3 anchored in Bitcoin block 970627). The public record is pushed after each batch of decisions and before any step that touches NS: full and public snapshots, both stamped, a diff audit of what changed, then `prereg/publish_public.sh` (`DECISIONS.md`, regular-push entry). No ratio to NS exists in any language: JPN and THA are paused until the selection rule is settled, and the other 15 wait for their candidate lists.
+
 **Stage 2 is complete.** Next: Stage 3. Test-install and check the tools in `notes/stage3-proposal-other-languages.md` (espeak-ng, underthesea, pyvi, g2pk2, jieba, pkuseg, opencc; a second Cantonese segmenter), then build the syllabification pipeline language by language, starting with the NS unit check on the primary read texts (`DECISIONS.md`, Stage 3 scope and the approved convention rule). Stage 4's exact-source check needs WebCelex (webcelex.ivdnt.org) and Lexique terms checked first.
 
 Stage 2 subtitles (`src/stage2_opensubtitles.py`): all 16 languages done 2026-10-09, every sample equal to the output of the final fetcher (`0bf87dd`; provenance in `results/stage2/README.md`), and `src/stage2_check.py` passes on all 34 samples; per-language counts and filter rates in `results/stage2/summary_opensubtitles.tsv`. 200 MB each except EUS (31 MB, whole release), CAT (40 MB, whole release) and JPN (73 MB, the whole usable release). Corpora in `data/raw/` (gitignored; OpenSubtitles text is not redistributable); manifests in `results/stage2/manifest/` rebuild the samples.
@@ -35,8 +37,7 @@ Stage 3 (offline-safe): unit-check scope logged (digit-free texts primary, all t
 
 ## Open decisions (Brett)
 
-- Stage 3 plans for the other 15 languages (`notes/stage3-proposal-other-languages.md`): first draft, adequacy mostly untested; VIE added to the segmenter fork.
-- Thai Wikipedia prose-line rule, after inspecting Thai Wikipedia.
+- Stage 3 candidate conventions for the other 15 languages (`notes/stage3-candidate-conventions.md`, 2026-10-09): main G2P fixed per language, closed lists of grouping candidates as rules over its output, each sourced with page; 7 languages with two candidates, 8 with one. Approve or amend; then counters on corpus words, snapshot, stamp, and only then the read texts.
 
 ## Blockers
 
