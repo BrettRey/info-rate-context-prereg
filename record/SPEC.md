@@ -153,6 +153,7 @@ Compute IR_k = ID_k × SR for each reading, using SR from the CSV. For each k, r
 
 - Mean IR (bits/s). This is expected to fall as k grows.
 - CV of language-mean IR, and the ratio R_k = CV(IR_k) / CV(SR), with a bootstrap interval that resamples **languages** (N = 17).
+  - *Note (2026-10-09):* superseded: R_k is defined on SDs of logs, with v_k and r_k beside it (spec-review item 4, confirmed by Brett 2026-10-09), and two intervals are reported, one for these 17 languages and one for languages in general (`notes/multiverse-spec.md` §4–5).
 - r(ID_k, SR) on the 17 language means, with its interval.
 - A leave-one-family-out sensitivity check, since Indo-European has 7 of the 17 languages.
 
