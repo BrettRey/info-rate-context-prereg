@@ -33,9 +33,13 @@ The rungs (k = 0, 1w, 1, 1b-free, 1b-charged, 2, 3, 4) are the curve's axis, com
 - **Word segmenter** (word-aware rungs only): CMN jieba or pkuseg; YUE PyCantonese or cantoseg; THA newmm or attacut; VIE underthesea or pyvi; JPN the reader's own tokens.
 - **Reader or G2P where two were planned as independent routes:** JPN pyopenjtalk or fugashi with UniDic; THA thaig2p or TLTK.
 
+### 2.2a Estimator (Brett, 2026-10-09, option B)
+
+Two estimators. KenLM (modified Kneser–Ney) in every universe; and in the named universes (first-listed, dictionary, NS-closest) a second estimator that generalises over unseen contexts: a feed-forward neural model that sees exactly the k previous syllables (shared syllable embeddings, one hidden layer, a softmax over syllables), trained on the same text and budget as KenLM, with early stopping on validation documents kept apart from the test documents. Its settings are fixed on fake data before any real estimate. It enters only after passing the same fake-data checks as KenLM (F1 and F3b), and in particular after showing that it recovers dependencies that skip over intervening syllables, which is the reason for adding it (F3b's stress test). The test must include mapped dependencies, where a syllable predicts a *different* syllable later (token t is a fixed random permutation of token t − m), not only copies: tied input and output embeddings make copying easy, so a pass on copy text alone could reflect that shortcut (side agent, 2026-10-09; `src/fakedata/f1_mapped.py`). Both estimators' curves are reported side by side; where they differ, the difference is part of what the multiverse reports.
+
 ### 2.3 Fixed in every universe
 
-Stage 2 sampling, normalisation and filters; the primary-text definition; tone in the tonal languages; the estimator (modified Kneser–Ney held-out cross-entropy with KenLM, built at commit 4cb443e, approved by Brett 2026-10-09 on condition of a fake-data check: on simulated text from a process with known entropy, KenLM must recover that entropy at each order before any syllable estimate), its orders and its document-level split; the same test documents at every rung.
+Stage 2 sampling, normalisation and filters; the primary-text definition; tone in the tonal languages; the estimators and their settings (§2.2a), and the document-level split; the same test documents at every rung.
 
 ### 2.4 What counts as reasonable
 

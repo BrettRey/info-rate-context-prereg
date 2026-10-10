@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Times lmplz/build_binary/query for orders 2..5 on synthetic data. Writes results.tsv.
 set -u
-B="$1"; K=~/src/kenlm/build/bin; PY=/Users/brettreynolds/projects/LLM-CLI-projects/papers/development/info-rate-context/.venv/bin/python
+B="$1"; K=~/src/kenlm/build/bin; PY="$(cd "$(dirname "$0")/../.." && pwd)/.venv/bin/python"
 echo -e "regime\tvocab\tn_train\torder\tlmplz_s\tlmplz_maxrss_mb\tbinary_s\tquery_s\tarpa_mb" > "$B/results.tsv"
 for regime in markov iid; do for v in 2000 10000; do for n in 10000000 30000000; do
   tr="$B/data/train.txt"; te="$B/data/test.txt"
