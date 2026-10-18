@@ -1,0 +1,473 @@
+{
+  "schema": "f1c-compatibility-v1",
+  "explanation": "Pinned snapshots and reviewed resource/provenance fixes. The final supplied snapshot 0a83326ebb44 differs from v2 only in retaining declared settings in writer rows and is pinned for KenLM only. The new resource-only calibration includes its JSON in the current source fingerprint. Scoring is unchanged; v1 KenLM endpoints remain incompatible. Future versions require explicit review and pins. Round 4 adds scored-count validation only to the original driver fingerprint; its process and scoring are unchanged. The separate boundary-signal process carries its own strict manifest and is never merged with these rows. Round 5 instruments the neural held-out scoring loop and writes its actual target count; model, contexts, loss arithmetic and training settings are unchanged. The round-5 source is explicitly pinned to the same families; its missing counts are never inferred. Integration 2026-10-10 explicitly pins 108322ba1770 to the rung families of reviewed t5 source f67ac1a78663 after exact default-option neural loss regressions against the integrated parent on all eleven rungs, bounded and running. KenLM scoring is unchanged. Optional t1 controls are recorded in each row's settings, so new fixed-settings fits remain separate from default fits. Scored counts are measured and never inferred for this source. No automatic authorization of future fingerprints is added. Integration part 2, 2026-10-10: explicitly pins a4d10115cc5e to the reviewed families of 108322ba1770 after IEEE-754 byte-equal F1c regressions against pre-T2 integration ee10afeebb21c95787fc7e5ff2ef29ebb3e190e0. Independent fits match on all eleven rungs, bounded and running: 22 KenLM cells and 44 neural cells (default and fixed options), including raw/joint/conditional and validation losses where applicable. Simulated corpora, contexts, written text, population truths, same-test oracles and plugin endpoints also agree exactly. Optional resource-budget hooks and sort-memory parameters retain the existing F1c defaults; its checked corpora contain no zero backoffs. The new -1e30 zero-backoff encoding and unsupported-target rejection are separately tested by T2 and do not change these existing finite-probability F1c paths. Settings compatibility and measured scored-count validation remain strict; this pin does not infer missing counts or authorize future fingerprints. T9, 2026-10-10: explicitly pins 05d03614e4cd after exact F1c scoring regressions on 22 KenLM and 44 neural cells against the immutable integration parent. Changes restrict disk accounting to run work/output directories, add the separate 50 GB data ceiling, and fingerprint the resource helper. Contexts, text encodings, truth, oracles, fitting and score arithmetic remain unchanged; scored-count and settings validation remain strict. T9 round 2, 2026-10-10: explicitly pins ef5c56ac3f51 after byte-equal comparisons against the immutable pre-T2 integration parent on all 22 KenLM and 44 neural cells (default and fixed options), both line treatments. Output accounting now sums only the driver's TSV, replacement temporary file, logs and scratch directory, including top-level output paths; the directory/file size helper and optional owned-path guard change resources only. Contexts, written text, truths, oracles, plugin endpoints, fitting, score arithmetic and scored-count/settings checks remain unchanged. Old pins remain explicit; no future source is authorized. T9 round 3, 2026-10-10: explicitly pins 1722fd5cb05c after byte-equal F1c scoring regressions on all 22 KenLM and 44 neural cells against the immutable pre-T2 integration parent (default and fixed options, both line treatments). Cooperative reservations now supplement destination checks; F1c owned-artifact accounting follows each fit and builder check, and continuation outputs charge owned paths rather than unrelated root contents. Contexts, text, truths, oracles, fitting and score arithmetic are unchanged. Previous pins and strict settings/scored-count checks remain; future fingerprints require explicit verification. T11, 2026-10-10: explicitly pins 9e0fc92293b7 after exact agreement on all 44 historical neural cells, default and fixed options, bounded and running (test and validation delta=0, n_scored=205). The neural scorer adds optional per-document summed losses from the same logits; the default aggregate loss reduction, contexts, training, and model selection are unchanged. The F1c KenLM driver and scorer source are unchanged; native KenLM regression fits were not run under the one-thread limit. Existing strict settings/scored-count policy and all old pins remain; this source is not enrolled for inferred legacy counts. R4, 2026-10-11: explicitly pins 159507459e74 to the reviewed families of 9e0fc92293b7 after the existing integration regressions produced byte-equal scores on all 22 KenLM and 44 neural cells (default and fixed options, bounded and running). Stage 5 materializes optional document partitions and owned-artifact iterables before repeated use; default list inputs, contexts, fitting, validation/test loss arithmetic, settings and scored counts are unchanged. Iterator resource accounting no longer loses owned files after the first check. All historical pins and strict settings/scored-count checks remain; no missing count is inferred and no future fingerprint is authorized. R5, 2026-10-11: explicitly pins c755e98dea83 after exact independent comparisons on 22 KenLM cells against ee10afeebb21c95787fc7e5ff2ef29ebb3e190e0 and 44 neural cells against 5be16d1deded1eb8fae3f8a6f6b4861df21f67ca, all eleven rungs, both line treatments, default/fixed neural options. The neural comparison now loads the pinned historical scorer as well as historical corpora; earlier tests had incorrectly used the current neural scorer on both sides. An injected +1-bit current test loss is rejected in all 44 cells; the old comparison accepted it. Public Stage 5/6 boundaries now retain finite iterable declarations as recursive tuples; arrays, model/corpus objects, file handles and output sinks keep their native interfaces. Existing contexts, score arithmetic, fitting settings and scored counts are unchanged. The shared iterable helper is included in this fingerprint and runner/refit code identities. All old pins and strict scored-count/settings checks remain; no future source is authorized and no missing count is inferred. P7, 2026-10-13: explicitly pins c4c98f67369b to the reviewed families of c755e98dea83. The only change in the fingerprinted sources is the five-line retained-source header the freeze lock needs (a comment, two private imports and the __freeze_module_code__ and __freeze_source__ assignments) in src/stage5/rungs.py, nnlm.py, disk_space.py and iterables.py. The existing integration regressions produced byte-equal scores on all 22 KenLM cells against ee10afeebb21c95787fc7e5ff2ef29ebb3e190e0 and all 44 neural cells against 5be16d1deded1eb8fae3f8a6f6b4861df21f67ca (default and fixed options, bounded and running), and the injected +1-bit loss was rejected in all 44. All old pins and strict scored-count/settings checks remain; no future source is authorized and no missing count is inferred.",
+  "codes": {
+    "2a93a902294b": {
+      "kenlm": {
+        "0": "legacy-context-namespace-v1",
+        "1w": "legacy-context-namespace-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "3b9e5c768f6a": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "8299474a48ea": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "a3db8eb9031d": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "0a83326ebb44": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "6c4ca5555e1d": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "f16586eea906": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "f67ac1a78663": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "108322ba1770": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "a4d10115cc5e": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "05d03614e4cd": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "ef5c56ac3f51": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "1722fd5cb05c": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "9e0fc92293b7": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "159507459e74": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "c755e98dea83": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    },
+    "c4c98f67369b": {
+      "kenlm": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      },
+      "neural": {
+        "0": "current-flag-word-boundary-v1",
+        "1w": "current-flag-word-boundary-v1",
+        "1": "current-flag-word-boundary-v1",
+        "1b-free": "current-flag-word-boundary-v1",
+        "1b-charged": "current-flag-word-boundary-v1",
+        "2-free": "current-flag-word-boundary-v1",
+        "2-charged": "current-flag-word-boundary-v1",
+        "3-free": "current-flag-word-boundary-v1",
+        "3-charged": "current-flag-word-boundary-v1",
+        "4-free": "current-flag-word-boundary-v1",
+        "4-charged": "current-flag-word-boundary-v1"
+      }
+    }
+  },
+  "legacy_full_score_sources": [
+    "2a93a902294b"
+  ],
+  "legacy_full_score_explanation": "Neural only, and only when n_scored is blank: archived source v1 _loss_bits traverses range(0, len(tgt), batch), sums every target, and returns only after the loop. infer n_scored=n_test for its missing instrumentation. Explicit mismatched counts are always rejected. No other source is enrolled."
+}

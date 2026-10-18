@@ -149,7 +149,7 @@ def pass1(lang):
     if cache.exists():
         print(f"{lang}: pass-1 cache exists", flush=True)
         return cache
-    os2.guard()
+    os2.guard(ROOT / "data")
     norm = os2.Normaliser(lang)
     shards = shard_list(code)
     units, files = [], {}
@@ -176,7 +176,7 @@ def pass1(lang):
             if total >= CAP_BYTES:
                 break
             if k % 20 == 0:
-                os2.guard()
+                os2.guard(ROOT / "data")
             tab = files[p].read_row_group(rg, columns=["id", "title", "text"]).to_pylist()
             read += 1
             group = f"{pathlib.PurePosixPath(p).stem}:{rg}"

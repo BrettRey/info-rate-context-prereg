@@ -6,7 +6,9 @@ column). Wikipedia's gap marker (⟂, where Stage 2 removed digits or out-of-inv
 boundary, the "split" reading of the gap fork (notes/multiverse-spec.md §2.1): each gap-free stretch becomes
 its own line. Revised 2026-10-10 after review (the first version took every floor(N/5000)-th row and kept
 gaps as text). Writes data/interim/tally-sample/<LANG>.txt (gitignored) and a manifest of counts and hashes.
-Usage: python -I src/stage3_tally_sample.py
+Usage: python -I src/stage3_tally_sample.py [LANG ...]
+  With language codes (e.g. JPN THA), draws only those and merges them into the existing manifest,
+  leaving the other samples untouched (added 2026-10-10, when JPN and THA got counters).
 """
 import csv, gzip, hashlib, io, json, os, sys
 import numpy as np
@@ -24,7 +26,10 @@ def rows(path):
 
 def main():
     os.makedirs(OUT, exist_ok=True); manifest = {}
-    for lang in LANGS:
+    langs = sys.argv[1:] or LANGS
+    if sys.argv[1:]:
+        manifest = json.load(open(os.path.join(OUT, "manifest.json")))
+    for lang in langs:
         lines = []
         for src in ("opensubtitles", "wikipedia"):
             path = os.path.join(ROOT, "data", "raw", src, f"{lang}.tsv.gz")

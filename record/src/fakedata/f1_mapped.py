@@ -8,9 +8,15 @@ pi_b = (1 - EPS) pi_{sigma^-1(b)} + EPS p_b (computed by iteration). True entrop
 tokens: H(pi) for k < m (the residue chains are independent), sum_a pi_a H(T(a, .)) for k >= m.
 Runs both estimators at lag 1 (sanity) and lag 3, 600/2,000/10,000 types, 10M training tokens, lines
 of 1,000, k = 1-4. No linguistic data.
-Usage: python -I src/fakedata/f1_mapped.py WORKDIR OUT.tsv [--kenlm-only]
+Usage: python -I src/fakedata/f1_mapped.py WORKDIR OUT.tsv [--kenlm-only] [--stationary-start]
 (--kenlm-only skips the neural fits, leaving their columns empty, so KenLM can run while the GPU is busy.)
+--stationary-start initializes each residue chain at pi; the default remains the original Zipf start.
 """
+# Retain the executed module code and source for the freeze lock (src/stage3/freeze.py).
+import sys as _freeze_sys
+from pathlib import Path as _FreezePath
+__freeze_module_code__ = _freeze_sys._getframe().f_code
+__freeze_source__ = _FreezePath(__file__).read_bytes()
 import csv, importlib.util, math, os, subprocess, sys
 import numpy as np
 
@@ -42,13 +48,21 @@ def truth(p, sigma, eps, k, m):
     hc = float(np.sum(pi * h_rows(p, sigma, eps)))
     return float(np.mean([hp if min(k, j) < m else hc for j in range(L)]))
 
-def simulate(n, p, m, sigma, seed):
+def simulate(n, p, m, sigma, seed, *, stationary_start=False):
+    """Start residue chains at p by default, or at stationary pi when requested.
+
+    The default consumes exactly the original random draws, preserving saved runs.
+    Stationary initialization aligns even the first positions with truth().
+    """
     rng = np.random.default_rng(seed)
+    pi = stationary(p, sigma, EPS) if stationary_start else None
     out = np.empty(n, dtype=np.int64)
     for r in range(m):
         Lr = len(range(r, n, m))
         fresh = rng.random(Lr) < EPS; fresh[0] = True
         vals = rng.choice(len(p), size=Lr, p=p)
+        if stationary_start:
+            vals[0] = rng.choice(len(p), p=pi)
         last = np.maximum.accumulate(np.where(fresh, np.arange(Lr), 0))
         y = vals[last]; d = np.arange(Lr) - last                  # apply sigma d times
         step = 0
@@ -76,6 +90,7 @@ def kenlm_bits(work, tr, te, k):
 def main():
     work, out = sys.argv[1], sys.argv[2]
     kenlm_only = "--kenlm-only" in sys.argv[3:]
+    stationary_start = "--stationary-start" in sys.argv[3:]
     for d in (work, f"{work}/tmp", f"{work}/logs"):
         os.makedirs(d, exist_ok=True)
     rows = []
@@ -84,8 +99,9 @@ def main():
         sigma = np.random.default_rng(900 + v).permutation(v)
         for m in (1, 3):
             base = 5_000_000 + 1000 * m + F.VOCABS.index(v) * 10
-            tr = lines(simulate(N, p, m, sigma, base + 1)); te = lines(simulate(F.N_TEST, p, m, sigma, base + 2))
-            va = lines(simulate(N_VAL, p, m, sigma, base + 3))
+            tr = lines(simulate(N, p, m, sigma, base + 1, stationary_start=stationary_start))
+            te = lines(simulate(F.N_TEST, p, m, sigma, base + 2, stationary_start=stationary_start))
+            va = lines(simulate(N_VAL, p, m, sigma, base + 3, stationary_start=stationary_start))
             for k in (1, 2, 3, 4):
                 ref = truth(p, sigma, EPS, k, m)
                 hk = kenlm_bits(work, tr, te, k)
@@ -94,6 +110,8 @@ def main():
                        "kenlm": round(hk, 5), "kenlm_bias": round(hk - ref, 5), "ffnn": round(r["test_bits"], 5) if r else "",
                        "ffnn_bias": round(r["test_bits"] - ref, 5) if r else "", "ffnn_seconds": r["seconds"] if r else ""}
                 rows.append(row)
+                if stationary_start:
+                    row["initial_distribution"] = "stationary"
                 print(row, flush=True)
     with open(out, "w", newline="") as f:
         wr = csv.DictWriter(f, fieldnames=list(rows[0]), delimiter="\t", lineterminator="\n"); wr.writeheader(); wr.writerows(rows)

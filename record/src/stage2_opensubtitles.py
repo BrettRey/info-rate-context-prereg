@@ -14,6 +14,9 @@ Outputs (per language):
   results/stage2/manifest/opensubtitles_<LANG>.tsv  one row per folder tried (tracked)
   results/stage2/manifest/opensubtitles_zips.tsv    zip URL, ETag, Last-Modified, size
   data/interim/stage2_rejects/<LANG>.tsv          sample of rejected lines per filter
+  results/stage2/mojibake/opensubtitles_<LANG>.tsv  per file tried: the frozen mojibake rule's
+                                                  numerator, denominator, decision and flagged
+                                                  line positions (src/stage2_mojibake.py; tracked)
 """
 import collections
 import concurrent.futures as cf
@@ -22,6 +25,7 @@ import gzip
 import hashlib
 import html
 import io
+import json
 import pathlib
 import random
 import re
@@ -37,11 +41,20 @@ from http.client import HTTPException
 import xml.etree.ElementTree as ET
 import zipfile
 import zlib
+import importlib.util
+
+_spec = importlib.util.spec_from_file_location("stage2_mojibake", pathlib.Path(__file__).with_name("stage2_mojibake.py"))
+MOJIBAKE = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(MOJIBAKE)
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "data/raw/opensubtitles"
 MANIFEST_DIR = ROOT / "results/stage2/manifest"
 REJECT_DIR = ROOT / "data/interim/stage2_rejects"
+MOJIBAKE_DIR = ROOT / "results/stage2/mojibake"
+# The filters an output was made with: this file and the frozen mojibake rule.
+FILTERS_SHA256 = hashlib.sha256(pathlib.Path(__file__).read_bytes()
+                                + pathlib.Path(__file__).with_name("stage2_mojibake.py").read_bytes()).hexdigest()
 CKPT_DIR = ROOT / "data/interim/stage2_ckpt"
 BASE = "https://object.pouta.csc.fi/OPUS-OpenSubtitles/v2024/raw/{code}.zip"
 
@@ -56,8 +69,8 @@ MIN_OPUS_CONF = 0.9
 NO_OPUS_CONF = {"SRP"}         # OPUS gives sr files 0.5: a tie with hr/bs, not another language
 EDGE_LINES = 20              # credit-word filter applies to the first and last 20 lines
 ENGLISH_DROP = 0.9
-DATA_CEILING = 10 * 1024**3  # bytes under data/
-FREE_FLOOR = 40 * 1024**3    # bytes free on the volume
+DATA_CEILING = 50_000_000_000  # bytes under data/
+FREE_FLOOR = 42 * 1024**3    # bytes free on the volume
 WORKERS = 8
 MAX_NET_WAIT = 2 * 3600    # seconds to wait out a lost connection
 CHUNK = 64                 # folders per checkpoint
@@ -173,7 +186,7 @@ def base_clean(raw, lang):
     return t
 
 class Normaliser:
-    FILTERS = ["empty_raw", "music", "url", "credit", "digit", "letters", "english", "no_letters"]
+    FILTERS = ["empty_raw", "music", "url", "credit", "digit", "letters", "english", "no_letters", "mojibake"]
 
     def __init__(self, lang):
         self.lang = lang
@@ -319,7 +332,8 @@ def parse_doc(raw):
 
 def process_folder(url, files, norm):
     """Try up to MAX_TRIES files of one folder; return a result dict."""
-    res = {"tried": 0, "status": "no_eligible_file"}
+    res = {"tried": 0, "status": "no_eligible_file", "mojibake_files": []}
+    audit = []
     for info in files[:MAX_TRIES]:
         res["tried"] += 1
         try:
@@ -327,12 +341,25 @@ def process_folder(url, files, norm):
             meta, sents = parse_doc(raw)
         except Exception as e:
             res.update(status=f"error:{type(e).__name__}", file=info.filename)
+            # Audited too: the rule could not be applied to this file.
+            audit.append({"file": info.filename, "sha256": "", "rule": MOJIBAKE.RULE, "flagged": 0,
+                          "nonempty": 0, "file_dropped": False, "flagged_lines": [],
+                          "error": type(e).__name__})
             continue
+        # The frozen mojibake rule runs first, on the extracted lines, so its
+        # denominator holds every nonempty line, before any other filter.
+        moj = MOJIBAKE.document(sents)
+        flagged = set(moj["flagged_lines"])
+        audit.append({"file": info.filename, "sha256": hashlib.sha256(raw).hexdigest(), **moj})
         counts = collections.Counter()
         rejects = []
         kept = []
         n = len(sents)
         for i, s in enumerate(sents):
+            if i in flagged:
+                counts["mojibake"] += 1
+                rejects.append(("mojibake", s))
+                continue
             t, why = norm.line(s, i, n)
             if why:
                 counts[why] += 1
@@ -352,6 +379,8 @@ def process_folder(url, files, norm):
             status = "drop:machine_translated"
         elif norm.lang not in NO_OPUS_CONF and "confidence" in meta and float(meta["confidence"]) < MIN_OPUS_CONF:
             status = "drop:opus_confidence"
+        elif moj["file_dropped"]:
+            status = "drop:mojibake"
         elif norm.lang in LATIN and n and counts["letters"] / n > MAX_LETTER_FAIL:
             status = "drop:letter_rate"
         elif len(final) < MIN_LINES:
@@ -360,9 +389,10 @@ def process_folder(url, files, norm):
                "sha256": hashlib.sha256(raw).hexdigest(), "n_sent": n, "n_kept": len(final),
                "bytes_kept": sum(len(t.encode()) for _, t in final), "counts": counts,
                "rejects": rejects, "lines": final, "mt": meta.get("machine_translated", ""),
-               "conf": meta.get("confidence", "")}
+               "conf": meta.get("confidence", ""), "mojibake_files": audit}
         if status == "kept":
             return res
+    res["mojibake_files"] = audit
     return res
 
 def folder_key(path):
@@ -376,12 +406,17 @@ def group_of(folder):
 def du(path):
     return sum(p.stat().st_size for p in path.rglob("*") if p.is_file())
 
-def guard():
-    free = shutil.disk_usage(ROOT).free
-    used = du(ROOT / "data")
-    if free < FREE_FLOOR:
+def guard(data_directory, reserve=0, ceiling=DATA_CEILING):
+    destination = pathlib.Path(data_directory).resolve()
+    while not destination.exists():
+        destination = destination.parent
+    if not destination.is_dir():
+        destination = destination.parent
+    free = shutil.disk_usage(destination).free
+    used = du(data_directory)
+    if free - reserve < FREE_FLOOR:
         sys.exit(f"STOP: free space {free/1e9:.1f} GB below floor")
-    if used > DATA_CEILING:
+    if used + reserve > ceiling:
         sys.exit(f"STOP: data/ at {used/1e9:.1f} GB, over ceiling")
 
 # ---------------------------------------------------------------- per language
@@ -395,10 +430,15 @@ def run(lang):
     code = OPUS_CODE[lang]
     url = BASE.format(code=code)
     out = OUT_DIR / f"{lang}.tsv.gz"
+    sidecar = OUT_DIR / f"{lang}.filters.json"
     if out.exists():
-        print(f"{lang}: {out} exists, skipping")
+        made = json.loads(sidecar.read_text()) if sidecar.exists() else {}
+        if made.get("filters_sha256") != FILTERS_SHA256:
+            sys.exit(f"STOP: {out} was made with other filters (or before they were recorded); "
+                     "move it and its manifests aside before rerunning")
+        print(f"{lang}: {out} exists with these filters, skipping")
         return
-    guard()
+    guard(ROOT / "data")
     hdrs, _ = http(url, method="HEAD")
     size = int(hdrs["Content-Length"])
     etag = hdrs.get("ETag", "").strip('"')
@@ -425,7 +465,7 @@ def run(lang):
         else:
             seen_ids.add(fid)
 
-    for d in (OUT_DIR, MANIFEST_DIR, REJECT_DIR, CKPT_DIR):
+    for d in (OUT_DIR, MANIFEST_DIR, REJECT_DIR, CKPT_DIR, MOJIBAKE_DIR):
         d.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".part")
     ckpt = CKPT_DIR / f"opensubtitles_{lang}.pkl"
@@ -433,6 +473,8 @@ def run(lang):
         st = pickle.loads(ckpt.read_bytes())
         if st["etag"] != etag:
             sys.exit(f"STOP: {lang} zip changed since the checkpoint (ETag {st['etag']} -> {etag})")
+        if st.get("filters_sha256") != FILTERS_SHA256:
+            sys.exit(f"STOP: {lang} checkpoint was made with other filters; remove it and its .part file to restart")
         with open(tmp, "r+b") as fh:
             fh.truncate(st["text_bytes"])
         print(f"{lang}: resuming at folder {st['next']}, {st['total_bytes']/1e6:.1f} MB", flush=True)
@@ -440,7 +482,7 @@ def run(lang):
         tmp.unlink(missing_ok=True)
         with gzip.open(tmp, "wt", encoding="utf-8", newline="") as g:
             g.write("group\tfolder\tfile\tline\ttext\n")
-        st = {"etag": etag, "next": 0, "text_bytes": tmp.stat().st_size, "total_bytes": 0,
+        st = {"etag": etag, "filters_sha256": FILTERS_SHA256, "next": 0, "text_bytes": tmp.stat().st_size, "total_bytes": 0,
               "totals": collections.Counter(), "reservoir": {}, "seen": collections.Counter(),
               "rng": random.Random(SEED).getstate(), "mrows": [], "done": False}
         zips = MANIFEST_DIR / "opensubtitles_zips.tsv"
@@ -460,14 +502,26 @@ def run(lang):
     with cf.ThreadPoolExecutor(WORKERS) as ex:
         c0 = st["next"]
         while c0 < len(keys) and not st["done"]:
-            guard()
+            guard(ROOT / "data")
             batch = keys[c0:c0 + CHUNK]
             results = list(ex.map(lambda k: {"tried": 0, "status": skip[k]} if k in skip
                                   else process_folder(url, eligible[k], norm), batch))
             with gzip.open(tmp, "at", encoding="utf-8", newline="") as g:
                 for (year, folder), r in zip(batch, results):
-                    if st["done"]:
-                        break
+                    # Every file tried is audited, including folders processed in
+                    # this batch after the byte cap was reached (in_sample 0).
+                    in_sample = int(not st["done"])
+                    for m in r.get("mojibake_files", []):
+                        st.setdefault("moji", []).append({
+                            "year": year, "folder": folder, "file": pathlib.PurePosixPath(m["file"]).stem,
+                            "sha256": m["sha256"], "nonempty": m["nonempty"], "flagged": m["flagged"],
+                            "decision": (f"error:{m['error']}" if m.get("error") else
+                                         "file_dropped" if m["file_dropped"] else
+                                         "lines_dropped" if m["flagged"] else "none"),
+                            "folder_status": r["status"], "in_sample": in_sample,
+                            "flagged_lines": ",".join(map(str, m["flagged_lines"]))})
+                    if not in_sample:
+                        continue
                     grp = group_of(folder)
                     row = {"year": year, "folder": folder, "group": grp, "status": r["status"],
                            "tried": r["tried"], "file": pathlib.PurePosixPath(r.get("file", "")).stem,
@@ -511,6 +565,12 @@ def run(lang):
         w = csv.DictWriter(f, fieldnames=list(mrows[0]), delimiter="\t")
         w.writeheader()
         w.writerows(mrows)
+    with open(MOJIBAKE_DIR / f"opensubtitles_{lang}.tsv", "w", newline="") as f:
+        fields = ["year", "folder", "file", "sha256", "nonempty", "flagged", "decision",
+                  "folder_status", "in_sample", "flagged_lines"]
+        w = csv.DictWriter(f, fieldnames=fields, delimiter="\t")
+        w.writeheader()
+        w.writerows(st.get("moji", []))
     with open(REJECT_DIR / f"{lang}.tsv", "w", newline="") as f:
         w = csv.writer(f, delimiter="\t")
         w.writerow(["filter", "folder", "text"])
@@ -518,6 +578,7 @@ def run(lang):
             for folder, t in st["reservoir"][why]:
                 w.writerow([why, folder, t])
     tmp.rename(out)
+    sidecar.write_text(json.dumps({"filters_sha256": FILTERS_SHA256, "mojibake_rule": MOJIBAKE.RULE}) + "\n")
     ckpt.unlink()
     status = collections.Counter(m["status"] for m in mrows)
     print(f"{lang}: done. folders {len(mrows)} {dict(status)}; kept lines {totals['kept_lines']} "

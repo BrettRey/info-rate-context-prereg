@@ -2,7 +2,7 @@
 (notes/multiverse-spec.md §3a). No corpus and no estimator: this checks aggregation, R_k, v_k, r_k,
 the language bootstrap and paired rung differences against known truth.
 
-Panel shape from the authors' CSV (Language, Speaker, Text only; 2,288 readings). Syllable rates:
+Panel shape from a shape-only TSV (Language, Speaker, Text; 2,288 readings by default). Syllable rates:
 log SR = a_l + speaker + text (shared across languages) + language-by-text + reading noise. True
 densities per scenario: log ID_lk = m_k + v * sd_a * (r_k * z_l + sqrt(1 - r_k^2) * w_l), z the
 standardised language effect. S0: r_k = 0 everywhere; S1: r_k = -0.8 everywhere; S2: r_k = -0.8 at
@@ -14,9 +14,10 @@ language effects and densities redrawn each replicate from the population; truth
 R_k = sqrt(1 + v^2 + 2 r v), which is what the language bootstrap's interval claims to cover.
 
 The spreads below are simulation settings chosen to be plausible, not estimates from the data.
-Usage: python -I src/fakedata/f3a_oracle.py OUT.tsv [--zero-noise]
+Usage: python -I -B src/fakedata/f3a_oracle.py OUT.tsv [--zero-noise]
+       [--panel-shape PATH] [--drop-languages JPN THA]
 """
-import csv, importlib.util, os, sys
+import argparse, csv, importlib.util, os
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -30,16 +31,35 @@ SD_SPK, SD_TXT, SD_LT, SD_E = 0.08, 0.05, 0.03, 0.04  # speaker, shared text, la
 V = 0.9
 SCEN = {"S0": [0, 0, 0, 0, 0, 0], "S1": [-0.8] * 6, "S2": [-0.8, -0.8, 0, 0, 0, 0]}
 N_REP, N_BOOT, LEVEL = 500, 2000, 0.90
+DEFAULT_PANEL = os.path.join(HERE, "..", "..", "resources", "f3a_panel_shape.tsv")
 
-def panel():
-    rows = list(csv.DictReader(open(os.path.join(HERE, "..", "..", "data", "ref", "InfoRateData.csv")), delimiter="\t"))
+def panel(path=DEFAULT_PANEL, drop_languages=()):
+    """Read only a shape resource, preserving row order (and therefore old RNG draws)."""
+    with open(path, newline="", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream, delimiter="\t")
+        if reader.fieldnames != ["Language", "Speaker", "Text"]:
+            raise ValueError("panel shape must contain only Language, Speaker, Text, in that order")
+        rows = list(reader)
+    if not rows or any(set(row) != set(reader.fieldnames) or
+                       any(not value for value in row.values()) for row in rows):
+        raise ValueError("empty or malformed panel shape")
+    keys = [(row["Language"], row["Speaker"], row["Text"]) for row in rows]
+    if len(set(keys)) != len(keys):
+        raise ValueError("duplicate panel reading")
+    dropped = set(drop_languages)
+    unknown = dropped - {row["Language"] for row in rows}
+    if unknown:
+        raise ValueError(f"unknown dropped languages: {sorted(unknown)}")
+    rows = [row for row in rows if row["Language"] not in dropped]
+    if len({row["Language"] for row in rows}) < 3:
+        raise ValueError("F3a requires at least three languages")
     lang = np.array([r["Language"] for r in rows]); spk = np.array([r["Speaker"] for r in rows]); txt = np.array([r["Text"] for r in rows])
     return lang, spk, txt
 
 RUNG_VAR = 0.3                                        # each rung's own variation around the shared pattern
 
-def densities(a, r, rng, exact):
-    z = (a - a.mean()) / a.std(ddof=1) if exact else (a - MU) / SD_A
+def densities(a, r, rng, exact, *, sd_language=SD_A, v=V):
+    z = (a - a.mean()) / a.std(ddof=1) if exact else (a - MU) / sd_language
     if exact:
         z = z / z.std(ddof=1)
     w0 = rng.normal(size=len(a))
@@ -50,23 +70,30 @@ def densities(a, r, rng, exact):
             w = w - (w @ z) / (z @ z) * z; w = w / w.std(ddof=1)
         else:
             w = w / np.sqrt(1 + RUNG_VAR ** 2)
-        sd = a.std(ddof=1) if exact else SD_A
-        cols.append(M_K[k] + V * sd * (r[k] * z + np.sqrt(1 - r[k] ** 2) * w))
+        sd = a.std(ddof=1) if exact else sd_language
+        cols.append(M_K[k] + v * sd * (r[k] * z + np.sqrt(1 - r[k] ** 2) * w))
     return np.stack(cols, axis=1)
 
-def readings(a_by_lang, lang, spk, txt, rng, zero):
+def readings(a_by_lang, lang, spk, txt, rng, zero, *, sd_speaker=SD_SPK,
+             sd_text=SD_TXT, sd_language_text=SD_LT, sd_reading=SD_E):
     langs = np.unique(lang)
     li = np.searchsorted(langs, lang)
     if zero:
         return a_by_lang[li]
     su, si = np.unique(spk, return_inverse=True); tu, ti = np.unique(txt, return_inverse=True)
     lt = np.char.add(lang, txt); ltu, lti = np.unique(lt, return_inverse=True)
-    return (a_by_lang[li] + rng.normal(0, SD_SPK, len(su))[si] + rng.normal(0, SD_TXT, len(tu))[ti]
-            + rng.normal(0, SD_LT, len(ltu))[lti] + rng.normal(0, SD_E, len(lang)))
+    return (a_by_lang[li] + rng.normal(0, sd_speaker, len(su))[si] + rng.normal(0, sd_text, len(tu))[ti]
+            + rng.normal(0, sd_language_text, len(ltu))[lti] + rng.normal(0, sd_reading, len(lang)))
 
 def main():
-    out, zero = sys.argv[1], "--zero-noise" in sys.argv
-    lang, spk, txt = panel()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("out")
+    parser.add_argument("--zero-noise", action="store_true")
+    parser.add_argument("--panel-shape", default=DEFAULT_PANEL)
+    parser.add_argument("--drop-languages", nargs="+", default=[])
+    args = parser.parse_args()
+    out, zero = args.out, args.zero_noise
+    lang, spk, txt = panel(args.panel_shape, args.drop_languages)
     langs = np.unique(lang); L = len(langs)
     rng = np.random.default_rng(20261009)
     a_fixed = rng.normal(MU, SD_A, L)

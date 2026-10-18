@@ -3,7 +3,9 @@
 word, lang, lang_code, pos, sounds, hyphenation(s), categories (entry and sense level) and forms.
 Read as a stream; writes data/interim/wiktionary/<lang_code>.jsonl.gz and a count per language.
 Content: CC BY-SA 4.0 and GFDL (Wiktionary); extraction by Wiktextract (Ylonen).
-Usage: python -I src/stage3_wiktionary_filter.py
+Usage: python -I src/stage3_wiktionary_filter.py [LANGUAGE ...]
+  With language names (Wiktextract's `lang`, e.g. Japanese Thai), extracts only those and writes
+  counts-<names>.json, leaving the other extracts and counts.json alone (added 2026-10-10 for JPN, THA).
 """
 import gzip, json, os, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,6 +16,9 @@ LANGS = {"Spanish", "Catalan", "Italian", "German", "English", "French", "Serbo-
 KEEP = ("word", "lang", "lang_code", "pos", "sounds", "hyphenation", "hyphenations", "forms")
 
 def main():
+    global LANGS
+    if sys.argv[1:]:
+        LANGS = set(sys.argv[1:])
     os.makedirs(OUT, exist_ok=True); outs, counts = {}, {}
     with gzip.open(SRC, "rt", encoding="utf-8") as f:
         for n, line in enumerate(f):
@@ -34,7 +39,8 @@ def main():
             outs[code].write(json.dumps(rec, ensure_ascii=False) + "\n"); counts[code] = counts.get(code, 0) + 1
     for o in outs.values():
         o.close()
-    json.dump(counts, open(os.path.join(OUT, "counts.json"), "w"), indent=1)
+    name = "counts.json" if not sys.argv[1:] else "counts-" + "-".join(sorted(sys.argv[1:])) + ".json"
+    json.dump(counts, open(os.path.join(OUT, name), "w"), indent=1)
     print("done", counts, flush=True)
 
 if __name__ == "__main__":

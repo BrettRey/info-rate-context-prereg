@@ -1,0 +1,15 @@
+{
+  "schema": "f1c-reservation-v1",
+  "source": "results/fakedata/f1c_kenlm_10m_final.tsv",
+  "source_sha256": "a18bb45eadb5db371fd425982bc8889cb0e077a7f2d5f5deeb895cbae4ff2074",
+  "cells": 66,
+  "n_train": 10000000,
+  "max_n_test": 100000,
+  "max_syllable_id": 9999,
+  "compressed": true,
+  "builder_memory": "256M",
+  "max_peak_directory_bytes": 2391383506,
+  "margin_percent": 10,
+  "round_up_bytes": 100000000,
+  "scope": "Measured F1c synthetic boundary process, inventories 600/2000/10000, both treatments, all eleven rungs; aggregate sampled peak includes both texts and model/sort files. Not a hard quota or calibration for other processes/budgets."
+}

@@ -13,6 +13,11 @@ No linguistic data.
 
 Usage: python -I src/fakedata/f1v2.py WORKDIR OUT_DIR {long|short|ablation}
 """
+# Retain the executed module code and source for the freeze lock (src/stage3/freeze.py).
+import sys as _freeze_sys
+from pathlib import Path as _FreezePath
+__freeze_module_code__ = _freeze_sys._getframe().f_code
+__freeze_source__ = _FreezePath(__file__).read_bytes()
 import csv, hashlib, math, os, re, subprocess, sys, time
 import numpy as np
 import kenlm
@@ -65,9 +70,9 @@ def write(path, toks, line):
             f.write(" ".join(f"s{t}" for t in toks[i:i + line]) + "\n")
     return n
 
-def lmplz(order, train, arpa, tmp, log_path, fallback_values=None):
+def lmplz(order, train, arpa, tmp, log_path, fallback_values=None, sort_memory="30%"):
     """Run lmplz; on a discount failure only, retry with the fallback. Returns (fallback_used, seconds)."""
-    cmd = [f"{KENLM}/lmplz", "-o", str(order), "-S", "30%", "-T", tmp]
+    cmd = [f"{KENLM}/lmplz", "-o", str(order), "-S", sort_memory, "-T", tmp]
     t0 = time.time()
     r = subprocess.run(cmd, stdin=open(train), stdout=open(arpa, "w"), stderr=subprocess.PIPE, text=True)
     log = r.stderr
