@@ -128,6 +128,54 @@ def workers():
     return int(value)
 
 
+# Stages of run(), as `stage:run_name`, that may take their own scan-worker count (2026-11-02).
+STAGE_KEYS = ('measure:main', 'measure:wikipedia', 'prepare:main', 'prepare:wikipedia', 'check:checks')
+
+
+def stage_scan_workers():
+    """Per-stage scan workers from INFO_RATE_SCAN_WORKERS_BY_STAGE, e.g. `prepare:wikipedia=4+check:checks=4`
+    (items separated by `+` or `,`; `+` in Slurm's --export, which splits on commas).
+
+    Stages not named keep INFO_RATE_SCAN_WORKERS. A parallelism setting only: the scan-worker count enters no
+    reuse key (DECISIONS.md 2026-10-30), so it lets each stage run at the count its memory was measured at
+    (Fir, 2026-10-28 to 11-02: both measures and the main preparation at 12, the Wikipedia preparation and the
+    checks at 4). Read when run() starts, so a malformed value stops the run before any work."""
+    value = os.environ.get('INFO_RATE_SCAN_WORKERS_BY_STAGE', '').strip()
+    chosen = {}
+    for item in ((part.strip() for part in value.replace('+', ',').split(',')) if value else ()):
+        key, _, count = item.partition('=')
+        key, count = key.strip(), count.strip()
+        if key not in STAGE_KEYS or key in chosen or not count.isdigit() or int(count) < 1:
+            raise ValueError(f'INFO_RATE_SCAN_WORKERS_BY_STAGE: bad item {item!r}; stages are {", ".join(STAGE_KEYS)}')
+        chosen[key] = count
+    return chosen
+
+
+class _scan_workers_for:
+    """INFO_RATE_SCAN_WORKERS set to one stage's count while that stage runs, restored afterwards (worker
+    processes inherit the environment); with no count for the stage, nothing changes."""
+
+    def __init__(self, chosen, stage, run_name):
+        self.count, self.key = chosen.get(f'{stage}:{run_name}'), f'{stage}:{run_name}'
+
+    def __enter__(self):
+        self.previous = os.environ.get(P.SCAN_WORKERS)
+        # Logged before anything changes, so a failure here leaves the environment as it was; to stderr, which
+        # the batch script's driver log also takes (2>&1), so stdout stays the callers' (test_p7_freeze_closure).
+        print(f'{self.key}: {self.count or P.scan_workers()} scan workers', file=sys.stderr, flush=True)
+        if self.count is not None:
+            os.environ[P.SCAN_WORKERS] = self.count
+        return self
+
+    def __exit__(self, *exc):
+        if self.count is not None:
+            if self.previous is None:
+                os.environ.pop(P.SCAN_WORKERS, None)
+            else:
+                os.environ[P.SCAN_WORKERS] = self.previous
+        return False
+
+
 def g2p_cache(work, language):
     """One G2P cache folder per language for the whole counts phase (P9, item 8a).
 
@@ -252,7 +300,7 @@ def prepare_language(run_name, language, rows, *, root, work, sizes, seed, b0, f
                            floor=floor, onset_source=onset_source,
                            gap_treatment=arguments['gap_treatment'], simulated=simulated,
                            labels=[dict(output=outputs[l], shared=shared_by_label[l], budget=cuts[l]) for l in labels],
-                           provisional_mask=m['mask'],
+                           provisional_mask=m['mask'], planned_units=units,
                            named_inputs=None if simulated else named_inputs(),
                            neural_settings=neural_settings, g2p_cache=g2p_cache(work, language))
         for label, value in zip(labels, values):
@@ -358,11 +406,16 @@ def _by_language(stage, run_name, by_language, n, *, root, work, backends, **opt
         folder = work / run_name / language / 'workers'
         name = f'{stage}-{variant[:12]}'
         spec, result, log = folder / f'{name}.json', folder / f'{name}-result.json', folder / f'{name}.log'
+        data = (P.canonical(dict(stage=stage, run_name=run_name, language=language, rows=by_language[language],
+                                 root=str(root), work=str(work), options=dict(options, variant=variant))) + '\n').encode()
+        if stage == 'prepare':
+            value = _finished_preparation(spec, result, data, root)
+            if value is not None:
+                print(f'{run_name} {language} {name}: finished preparation reused', flush=True)
+                return value
         for stale in (result, folder / f'{name}-usage.json'):
             stale.unlink(missing_ok=True)
-        P.atomic(spec, (P.canonical(dict(stage=stage, run_name=run_name, language=language, rows=by_language[language],
-                                          root=str(root), work=str(work), options=dict(options, variant=variant)))
-                        + '\n').encode())
+        P.atomic(spec, data)
         started = time.time()
         with open(log, 'wb') as out:
             code = subprocess.run([sys.executable, '-I', '-B', str(Path(__file__).resolve()), '--worker', str(spec)],
@@ -400,6 +453,36 @@ def _by_language(stage, run_name, by_language, n, *, root, work, backends, **opt
             for language in sorted(by_language)}
 
 
+def _finished_preparation(spec, result, data, root):
+    """A prepare worker's stored result, reused on a restart (2026-10-30), or None to prepare again: its spec
+    is the one this run writes, and each preparation it lists has its manifest (intact, with the digest the
+    result records) built by this code (`P.version()`, the builder's digest), and every file it keeps (marker,
+    masks, onset resources, syllable records; token files are rebuilt from the records, not kept) still has
+    the digest its artifacts list. Without this a finished preparation was redone in full whenever the chain
+    started the driver again."""
+    if not (spec.is_file() and result.is_file()) or spec.read_bytes() != data:
+        return None
+    value = json.loads(result.read_text(encoding='utf-8'))
+    versions, builder = json.loads(P.canonical(P.version())), P.digest(Path(L.__file__).read_bytes())
+    for p in value['preparations']:
+        inputs = Path(root) / p['inputs']
+        # The arguments `save_arguments` wrote, which the checks and the NS-closest phase read (Codex review).
+        if not (inputs.is_file() and (Path(root) / p['arguments']).is_file()):
+            return None
+        manifest = json.loads(inputs.read_text(encoding='utf-8'))
+        if (manifest.get('schema') != L.SCHEMA or manifest.get('sha256') != L._manifest_digest(manifest)
+                or manifest['sha256'] != p['inputs_sha256'] or manifest['removal_mask_sha256'] != p['removal_mask_sha256']
+                or manifest['versions'] != versions or manifest['builder_sha256'] != builder):
+            return None
+        kept = ([str(inputs.parent / name) for name in ('preparation.json', 'bootstrap-mask.json', 'removal-mask.json')]
+                + [r['path'] for r in manifest['resources'].values()] + list(manifest['syllable_records'].values()))
+        for path in kept:
+            if (path not in manifest['artifacts'] or not Path(path).is_file()
+                    or P.digest(Path(path).read_bytes()) != manifest['artifacts'][path]):
+                return None
+    return value
+
+
 def _worker(spec_path):
     import resource, time
     started = time.process_time()
@@ -425,6 +508,7 @@ def run(manifest_path, work, *, root=ROOT, sizes=None, seed=SP.SEED, backends=No
     that many at a time in separate processes (one per variant); supplied G2P backends (simulated runs
     only) can't cross a process boundary, so with them every language runs here.
     """
+    chosen = stage_scan_workers()  # first, so a malformed setting stops the run before anything is read
     root = Path(root).resolve()
     work = Path(work).resolve()
     if not work.is_relative_to(root):
@@ -444,6 +528,9 @@ def run(manifest_path, work, *, root=ROOT, sizes=None, seed=SP.SEED, backends=No
     n = 1 if backends else workers()
     record = dict(schema=SCHEMA, corpus_manifest_sha256=C.sha256_file(manifest_path), sizes=sizes, seed=seed,
                   floor=floor, onset_source=onset_source, simulated=simulated, versions=P.version(), runs={})
+    # Every run is measured before any is prepared (2026-10-28): the measures read all of each run's text under
+    # every declaration, so a reader fault on any corpus stops the run in its first hours, not days in.
+    measured = {}
     for run_name in ('main', 'wikipedia'):
         entries = [e for e in manifest['entries'] if e['run'] == run_name]
         if not entries:
@@ -452,7 +539,8 @@ def run(manifest_path, work, *, root=ROOT, sizes=None, seed=SP.SEED, backends=No
         for entry in entries:
             by_language.setdefault(entry['language'], []).append(entry)
         common = dict(root=root, work=work, backends=backends, sizes=sizes, seed=seed)
-        summaries = _by_language('measure', run_name, by_language, n, **common)
+        with _scan_workers_for(chosen, 'measure', run_name):
+            summaries = _by_language('measure', run_name, by_language, n, **common)
         # Every text variant of every language, counted under its own settings, before any budget is set.
         totals = {(language, digest(v['settings'])): v for language, s in sorted(summaries.items()) for v in s['variants']}
         # B₀: the smallest training total over every language and text variant (Brett, 2026-10-13).
@@ -470,9 +558,12 @@ def run(manifest_path, work, *, root=ROOT, sizes=None, seed=SP.SEED, backends=No
                     stub_rule_alternative={k[0] + ' ' + P.canonical(v['settings']): v['stub_rule_alternative']
                                            for k, v in totals.items() if v['stub_rule_alternative'] is not None})
         P.atomic(work / run_name / 'budget-plan.json', (P.canonical(plan) + '\n').encode())
-        options = dict(common, b0=b0, floor=floor, onset_source=onset_source, simulated=simulated,
+        measured[run_name] = by_language, common, plan
+    for run_name, (by_language, common, plan) in measured.items():
+        options = dict(common, b0=plan['B0'], floor=floor, onset_source=onset_source, simulated=simulated,
                        neural_settings=neural_settings)
-        languages = _by_language('prepare', run_name, by_language, n, **options)
+        with _scan_workers_for(chosen, 'prepare', run_name):
+            languages = _by_language('prepare', run_name, by_language, n, **options)
         record['runs'][run_name] = dict(B0=plan['B0'], B0_first_listed=plan['B0_first_listed'],
                                         set_by=plan['set_by'], totals=plan['totals'],
                                         stub_rule_alternative=plan['stub_rule_alternative'], languages=languages)
@@ -482,8 +573,9 @@ def run(manifest_path, work, *, root=ROOT, sizes=None, seed=SP.SEED, backends=No
         by_language = {}
         for entry in main_entries:
             by_language.setdefault(entry['language'], []).append(entry)
-        record['checks'] = _by_language('check', 'checks', by_language, n, root=root, work=work, backends=backends,
-                                        simulated=simulated)
+        with _scan_workers_for(chosen, 'check', 'checks'):
+            record['checks'] = _by_language('check', 'checks', by_language, n, root=root, work=work,
+                                            backends=backends, simulated=simulated)
     record['sha256'] = digest(record)
     P.atomic(work / 'run-record.json', (P.canonical(record) + '\n').encode())
     return record

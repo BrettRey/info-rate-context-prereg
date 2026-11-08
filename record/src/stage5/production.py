@@ -15,7 +15,7 @@ _boundary = _boundary_module.boundary
 import importlib.util
 from pathlib import Path
 
-NAMED_UNIVERSES = ('first-listed', 'dictionary', 'NS-closest')
+NAMED_UNIVERSES = ('first-listed', 'dictionary', 'NS-closest', 'NS-closest (completed options)')
 PRESET = 'zero_unigram_cosine5'
 
 
@@ -34,7 +34,7 @@ def validate_neural(job, effective):
     if job.get('simulated') is True:
         return
     if job.get('named_universe') not in NAMED_UNIVERSES:
-        raise ValueError('production neural job must name first-listed, dictionary or NS-closest')
+        raise ValueError('production neural job must name first-listed, dictionary, NS-closest or its labelled secondary')
     declaration = resolve_named(job)
     if effective['settings'] != neural_settings():
         raise ValueError('production neural settings must equal approved zero_unigram_cosine5 preset')

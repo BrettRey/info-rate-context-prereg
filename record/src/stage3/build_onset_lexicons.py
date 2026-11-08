@@ -12,6 +12,14 @@ carry tone and length marks that running text never has (*jȅste*, *bȉo*), so f
 SRP the combining marks on vowels and syllabic r are removed; č, ć, š, ž and đ
 are letters and stay. Nothing is generated or inferred.
 
+Amended (Brett, 2026-11-02; DECISIONS.md): an entry whose headword has two or more letters, all capitals,
+contributes neither its headword nor its forms. In training text such a type is lowercased and read as an
+ordinary word, which a letter-name initialism isn't (Basque *NBE* and its inflected forms would give the
+onset *nb*); a pronounceable acronym goes too, and its onsets are ones ordinary words have. The exclusion is by
+entry, so a lowercase word another entry lists stays. Lowercase abbreviations (French *rdv*) aren't caught:
+the categories that mark them also mark ordinary words. Loan clusters are a matter for the sourced onset
+constraints in `stage3/segment.py`, not for Wiktionary's borrowing tags, whose coverage varies by language.
+
 The lists are written gzipped (mtime 0, so a rebuild is byte-identical) to
 data/interim/onset-lexicons/ by default, which is not committed (they are large;
 Claude's choice, 2026-10-15). resources/onset-lexicons-provenance.json, which is
@@ -69,11 +77,20 @@ def usable(text):
     return bool(text) and not any(c.isspace() for c in text) and any(c.isalpha() for c in text)
 
 
+def initialism(entry):
+    """A headword of two or more letters, all capitals (the 2026-11-02 amendment)."""
+    letters = [c for c in entry.get('word') or '' if c.isalpha()]
+    return len(letters) >= 2 and all(c.isupper() for c in letters)
+
+
 def derive(stream, language):
-    words, summary = set(), dict(entries=0, headwords=0, forms=0, template_rows=0, unusable=0)
+    words, summary = set(), dict(entries=0, headwords=0, forms=0, template_rows=0, unusable=0, initialism_entries=0)
     for line in stream:
         entry = json.loads(line)
         summary['entries'] += 1
+        if initialism(entry):
+            summary['initialism_entries'] += 1
+            continue
         candidates = [(entry.get('word') or '', 'headwords')]
         for form in entry.get('forms') or ():
             if not isinstance(form, dict):
@@ -101,7 +118,8 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     meta = dict(SOURCE, builder_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 policy='a training word type counts toward onset counts only if its NFC-lowercased key is a listed '
-                       'headword or form (Brett, 2026-10-15); SRP keys without tone/length marks',
+                       'headword or form (Brett, 2026-10-15); SRP keys without tone/length marks; entries whose headword '
+                       'is all capitals list nothing (Brett, 2026-11-02)',
                 lists={})
     for language, code in sorted(CODES.items()):
         source = args.source / f'{code}.jsonl.gz'

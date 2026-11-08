@@ -1,0 +1,34 @@
+{
+ "schema": "onset-amendment-decomposition-v1",
+ "language": "TUR",
+ "option": "A",
+ "settings": {
+  "ownership": "left",
+  "stress": "unmarked",
+  "turkish_soft_g": "code"
+ },
+ "onsets_tsv_sha256": "3ba1a850f1bcad7632e16260c71a120fe68834c3b356ae46e1fc9ccdced258d4",
+ "segment_sha256": "33f47703482c213dccb96f8b17ec749464d2419bfc19c062b2f1fb0364630b30",
+ "initialism_clusters": [
+  "d͡ʒ d l"
+ ],
+ "sample": {
+  "every": 200,
+  "limit": 5000,
+  "lines": 5000,
+  "counter_failed": 0,
+  "segment_skipped": 64,
+  "syllable_tokens": 49074
+ },
+ "changed_share": {
+  "lone": 0.04262949830867669,
+  "licensing": 0.0,
+  "initialisms": 0.0,
+  "limits": 0.040815910665525534,
+  "geminates": 0.0,
+  "all": 0.08305823857847333
+ },
+ "geminate_split_token_share": 0.0,
+ "seconds": 7.0,
+ "script_sha256": "4a8f10644a3215ae9d6f587599863119b79a125b76c6ac7037c5728c19a097c2"
+}

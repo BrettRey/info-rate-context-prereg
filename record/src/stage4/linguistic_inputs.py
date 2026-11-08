@@ -511,11 +511,44 @@ def _check_label(language, shared, budget, gap_treatment, SHARED):
         raise ValueError('shared budget label must be supplied exactly when a budget cut is, and equal its label')
 
 
+# The mask built with learned training onsets should drop exactly the lines the empty-inventory mask (the counts'
+# and the split's) drops. Thai's two differ on 35 lines of its main budget, by the state of the shared G2P cache
+# rather than the onsets (a rebuild with an empty cache matches neither, 2026-10-29). Up to
+# this share of the lines compared, the removal mask is both masks' union, so a line either drops is dropped
+# (Brett, 2026-10-29); a larger difference still stops for a decision.
+ELIGIBILITY_TOLERANCE = 0.001
+
+
+def eligibility_union(mask, provisional):
+    """`mask` with every line `provisional` drops added, with its reasons; summary and digest recomputed."""
+    merged = json.loads(P.canonical(mask))
+    merged.pop('sha256', None)
+    for document, row in merged['documents'].items():
+        for line, reasons in provisional['documents'][document]['masked_lines'].items():
+            row['masked_lines'].setdefault(line, reasons)
+    merged['summary'] = P._mask_summary(merged['documents'])
+    merged['sha256'] = P.digest(P.canonical(merged).encode())
+    return P.read_mask(merged)
+
+
+def removal_mask_from(mask, provisional):
+    """(removal mask, lines whose eligibility differs, lines compared): `mask` itself when it drops the lines
+    `provisional` drops, their union when they differ on at most ELIGIBILITY_TOLERANCE of the lines; else a stop."""
+    changed = sum(len(set(row['masked_lines']) ^ set(provisional['documents'][d]['masked_lines']))
+                  for d, row in mask['documents'].items())
+    compared = sum(row['n_lines'] for row in mask['documents'].values())
+    if not changed:
+        return mask, 0, compared
+    if changed > ELIGIBILITY_TOLERANCE * compared:
+        raise ValueError('Line eligibility changed after learning training onsets; lead decision required')
+    return eligibility_union(mask, provisional), changed, compared
+
+
 def prepare(documents, splits, language, output=None, *, backends=None, floor=3,
             gap_treatment, simulated=False, shared=None, named_inputs=None,
             neural_settings=None, oov_policy='pooled-hapax', include_calibration=False, kenlm_peak_bytes=None,
             budget=None, labels=None, provisional_mask=None, onset_source='lexicon', onset_lexicon=None,
-            g2p_cache=None, check=None):
+            g2p_cache=None, check=None, planned_units=None, removal_mask=None):
     """Return a hashed preparation manifest and runnable ordered job specs.
 
     Production neural jobs are restricted to ready authoritative named
@@ -527,7 +560,8 @@ def prepare(documents, splits, language, output=None, *, backends=None, floor=3,
     [[document, n], ...], 'onset_lines': [[document, n], ...], 'target', 'B0',
     'units_sha256'} from src/stage4/budgets.py: prefixes of the training
     documents in split order, each with its leading source lines, checked against
-    a recomputation from this preparation's own training units. onset_lines is the B₀ prefix for every label: the onset
+    a recomputation from this preparation's own training units (after an
+    eligibility union, against `planned_units`). onset_lines is the B₀ prefix for every label: the onset
     inventories, and so the mask, are learned from it and stay the same across
     budgets; `lines` cuts only the training text behind vocabularies, files and
     jobs. Without a budget (the counts pass) onsets come from the whole split.
@@ -543,10 +577,23 @@ def prepare(documents, splits, language, output=None, *, backends=None, floor=3,
     encoded and written as a single call would; returns the manifests in label
     order. provisional_mask: the counts phase's mask for these documents (empty
     onset inventories), used in place of rebuilding it and checked document by
-    document. The first-listed declaration covers every document (its per-line
-    counts are the training units the budgets are verified against; documents no
-    cut uses are counted as the counts phase counts them); the others only the
-    held-out documents and the training prefix the largest cut uses.
+    document against the learned-onset mask; a difference within
+    ELIGIBILITY_TOLERANCE makes the removal mask their union (Brett, 2026-10-29).
+    The first-listed declaration covers every document (its per-line counts are
+    the training units the budgets are verified against, or after a union
+    `planned_units`, the counts phase's units the budgets were planned from; the
+    outputs use the union either way; documents no cut uses are counted as the
+    counts phase counts them); the others only the held-out documents and the
+    training prefix the largest cut uses.
+
+    removal_mask (2026-11-01): the removal mask an earlier preparation of these
+    documents and labels used (the counts phase's, given to the NS-closest
+    preparation), taken as it is in place of the learned-onset mask and the union,
+    since Thai's learned-onset mask can differ between builds. It must cover exactly
+    the documents scanned here under these declarations and drop every line the
+    provisional mask drops; its preparation applied the tolerance and verified the
+    budgets against it, so neither is done again (the caller checks it is that
+    preparation's mask, by digest). The marker records it.
 
     g2p_cache (P9, item 8a, result-neutral): one G2P cache folder for every scan
     here (the provisional and removal masks, the onset inventories and the
@@ -607,6 +654,7 @@ def prepare(documents, splits, language, output=None, *, backends=None, floor=3,
     if check is not None and dict(onset_source=onset_source, floor=floor) != \
             P.registry().check_view(language, check)['preparation']:
         raise ValueError('A check preparation must use its view\'s onset source and floor')
+    supplied = None if removal_mask is None else P.read_mask(removal_mask)
     markers = []
     for label, out in zip(labels, outputs):
         preparation = dict(language=language, splits=splits, source_sha256=hashes, floor=floor,
@@ -617,6 +665,8 @@ def prepare(documents, splits, language, output=None, *, backends=None, floor=3,
             builder_sha256=P.digest(Path(__file__).read_bytes()))
         if check is not None:
             preparation['check'] = check
+        if supplied is not None:
+            preparation['removal_mask_sha256'] = supplied['sha256']
         preparation = json.loads(P.canonical(preparation))
         marker = out / 'preparation.json'
         if marker.exists():
@@ -687,14 +737,31 @@ def prepare(documents, splits, language, output=None, *, backends=None, floor=3,
     spec = dict(gap_treatment=gap_treatment, inventories={
         P.declaration_key(d): None if inventories[configuration_id(d)] is None else scanned[configuration_id(d)]['path']
         for d in declarations})
-    mask = P.build_language_mask({d: texts[d] for d in needed}, language, first_output / 'removal-mask.json',
-                                 include_calibration=include_calibration, cache_dir=g2p_cache, check=check,
-                                 **(dict(adapter_spec=spec) if not backends else dict(prepare=adapter)))
-    for out in outputs[1:]:
-        P.atomic(out / 'removal-mask.json', (first_output / 'removal-mask.json').read_bytes())
-    if any(set(row['masked_lines']) != set(provisional['documents'][d]['masked_lines'])
-           for d, row in mask['documents'].items()):
-        raise ValueError('Line eligibility changed after learning training onsets; lead decision required')
+    if supplied is not None:
+        mask = supplied
+        if (mask['language'] != language or mask['include_calibration'] != include_calibration
+                or mask.get('check') != check or mask['declarations'] != json.loads(P.canonical(declarations))
+                or set(mask['documents']) != set(needed)
+                or any(mask['documents'][d]['input_sha256'] != P.digest(P.canonical(texts[d]).encode())
+                       or mask['documents'][d]['n_lines'] != len(texts[d]) for d in needed)
+                or any(not set(provisional['documents'][d]['masked_lines']) <= set(row['masked_lines'])
+                       for d, row in mask['documents'].items())):
+            raise ValueError('The supplied removal mask does not cover these documents and declarations')
+    else:
+        # Built afresh on every attempt (Thai's mask can differ between builds, so a rerun would refuse to replace
+        # it), then written as the removal mask below.
+        learned = first_output / '.learned-mask.json'
+        learned.unlink(missing_ok=True)
+        mask = P.build_language_mask({d: texts[d] for d in needed}, language, learned,
+                                     include_calibration=include_calibration, cache_dir=g2p_cache, check=check,
+                                     **(dict(adapter_spec=spec) if not backends else dict(prepare=adapter)))
+        learned.unlink()
+        mask, changed, compared = removal_mask_from(mask, provisional)
+        if changed:
+            print(f'{language}: line eligibility differs on {changed} of {compared} lines; the removal mask is the '
+                  'union of both masks', flush=True)
+    for out in outputs:
+        P.atomic(out / 'removal-mask.json', (P.canonical(mask) + '\n').encode())
     named = []
     if named_inputs is not None:
         if set(named_inputs) - {'languages', 'shared_settings', 'ns_lens'} or set(
@@ -748,7 +815,9 @@ def prepare(documents, splits, language, output=None, *, backends=None, floor=3,
             # budgets are planned (src/stage4/budgets.py). Budget-independent.
             # Documents no cut uses are counted as the counts phase counts them
             # (empty inventories, the provisional mask): counts don't depend on
-            # the inventory, and the two masks agree wherever both exist.
+            # the inventory, and the two masks agree wherever both exist except
+            # within an eligibility union, where the budgets are verified below
+            # against `planned_units` instead.
             units = {}
             for d in splits['train']:
                 if d in reports:
@@ -765,11 +834,21 @@ def prepare(documents, splits, language, output=None, *, backends=None, floor=3,
             # A check preparation's budget is the main preparation's, verified there against the
             # first-listed units under the main mask; its own mask and declarations count other
             # units, so the counts phase checks it equals main's instead (Codex review, 2026-10-16).
-            if check is None and any(b is not None for b in budgets):
+            if check is None and supplied is None and any(b is not None for b in budgets):
                 BUDGETS = P.registry().S._load('linguistic_budgets', ROOT / 'src/stage4/budgets.py')
+                # After an eligibility union a line it adds counts nothing here, so the budgets are verified
+                # against the training units they were planned from (the counts phase's; Codex review 2026-10-29).
+                verified = training_units
+                if changed:
+                    if planned_units is None:
+                        raise ValueError('An eligibility union needs the training units the budgets were planned from')
+                    verified = json.loads(P.canonical(planned_units))
+                    if ([d for d, _ in verified] != list(splits['train'])
+                            or any(len(values) != len(texts[d]) for d, values in verified)):
+                        raise ValueError('The planned training units do not match the training documents')
                 for b in budgets:
                     if b is not None:
-                        BUDGETS.verify(b, training_units)
+                        BUDGETS.verify(b, verified)
         options = {'convention': declaration['option']}
         for fork in P.registry().REGISTRY[language][declaration['option']]['forks']:
             options[fork['setting']] = declaration[fork['target']][fork['setting']]

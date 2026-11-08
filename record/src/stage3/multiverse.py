@@ -63,7 +63,7 @@ def _entry(language, option):
     ownership = S.BOUNDARY_ROWS[49]
     forks.append(dict(ownership, row=49, values=('left', 'right'), target='settings'))
     checks, diagnostics, unmeasured = tool_checks, [], []
-    for row in range(45, 54):
+    for row in range(45, 55):
         if row == 49:
             diagnostics.append(dict(ownership, row=row, values=('left', 'joint'),
                                     kind='undeclared-joint-ownership-diagnostic'))

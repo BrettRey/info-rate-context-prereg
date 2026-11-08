@@ -45,6 +45,8 @@ B = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = B
 _spec.loader.exec_module(B)
 TIE_RULE = 'Exact score ties use the first candidate in the supplied declared order; no tolerance.'
+SECONDARY_LABEL = ('Closest among the options that completed; NS-closest itself is undefined, its failures listed. '
+                   'A labelled secondary, never reported without the primary (Brett, 2026-10-15).')
 
 
 @_boundary
@@ -135,6 +137,16 @@ def evaluate(readings, counts, universes=(), *, selected_texts, configs, leaveou
                 option_changed=(configs[chosen]['option'] != configs[winner]['option']) if chosen and winner else None))
         language_results[language] = dict(closest_configuration=winner,
             closest_option=configs[winner]['option'] if winner else None, leave_one_text_out=leaveouts)
+        if winner is None:
+            # Undefined: list the failures and give the closest among the options that completed.
+            fallback = closest([(cid, summaries[cid]['median_abs_log_u']) for cid in production
+                                if summaries[cid]['median_abs_log_u'] is not None])
+            language_results[language].update(status='undefined',
+                failures=[dict(Text=c['Text'], configuration_id=cid, option=configs[cid]['option'], status=c['status'],
+                               problems=c.get('problems', [])) for cid in production for c in groups[cid]
+                          if c['status'] != 'complete'],
+                closest_completed_configuration=fallback,
+                closest_completed_option=configs[fallback]['option'] if fallback else None)
     universe_rows, names = [], set()
     for u in universes:
         if not isinstance(u.get('name'), str) or not u['name'] or u['name'] in names or not u.get('languages'):
@@ -166,7 +178,27 @@ def evaluate(readings, counts, universes=(), *, selected_texts, configs, leaveou
         target = dict(languages=languages, calibration_score=math.fsum(
             summaries[cid]['median_abs_log_u'] for cid in languages.values())/len(languages),
             scope='unrestricted-crossing-of-supplied-production-configurations')
-    panel = {language for u in universe_rows for language in u['languages']}
+    # When NS-closest is undefined, the closest among what completed is reported beside it, labelled.
+    undefined = {}
+    if target is None and (universe_rows or language_results):
+        secondary = None
+        if universe_rows:
+            name = closest([(u['name'], u['calibration_score']) for u in universe_rows if u['calibration_score'] is not None])
+            if name is not None:
+                chosen = next(u for u in universe_rows if u['name'] == name)
+                secondary = dict(name=name, languages=chosen['languages'], calibration_score=chosen['calibration_score'],
+                                 scope='supplied-universe-manifest')
+        else:
+            languages = {l: v['closest_configuration'] or v.get('closest_completed_configuration')
+                         for l, v in language_results.items()}
+            if all(languages.values()):
+                secondary = dict(languages=languages, calibration_score=math.fsum(
+                    summaries[cid]['median_abs_log_u'] for cid in languages.values())/len(languages),
+                    scope='unrestricted-crossing-of-supplied-production-configurations',
+                    undefined_languages=sorted(l for l, v in language_results.items() if not v['closest_configuration']))
+        undefined = dict(ns_closest_status='undefined',
+                         ns_closest_secondary=None if secondary is None else dict(secondary, label=SECONDARY_LABEL))
+    panel ={language for u in universe_rows for language in u['languages']}
     keys = sorted({(r['Language'], r['Text']) for r in enriched if r['Language'] in panel})
     omitted = ([dict(Text=text, keys=[key for key in keys if key[1] == text]) for text in sorted({t for _, t in keys})]
                if leaveout_mode == 'joint-text' else [dict(Language=l, Text=t, keys=[(l, t)]) for l, t in keys])
@@ -185,7 +217,7 @@ def evaluate(readings, counts, universes=(), *, selected_texts, configs, leaveou
         per_text=enriched, per_configuration=summaries, per_language=language_results,
         universes=universe_rows, closest_universe=winner, ns_closest=target, leave_one_text_out=stability,
         unavailable_leaveouts=sum(r['closest_universe'] is None for r in stability),
-        interpretation='NS matching is a diagnostic lens; all universes are retained without a cutoff.')
+        interpretation='NS matching is a diagnostic lens; all universes are retained without a cutoff.', **undefined)
 
 
 @_boundary

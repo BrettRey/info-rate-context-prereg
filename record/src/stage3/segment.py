@@ -1,8 +1,9 @@
 """Count-preserving syllable strings from the counters' effective phone trace.
 
 Pass a frozen Inventory (or explicit phone-tuple set in simulations). IPA cuts
-require an inventory; an explicitly empty inventory means every medial cluster
-is coda. FIN's default spelling cuts and valid Lexique cuts remain authoritative.
+require an inventory; with an explicitly empty one, only the last consonant before
+each medial vowel begins its syllable (the 2026-11-02 amendment, `_word_cut`).
+FIN's default spelling cuts and valid Lexique cuts remain authoritative.
 """
 
 # Retain the executed module code and source snapshot for the offline freeze lock.
@@ -33,7 +34,7 @@ C = O.C
 IPA = frozenset(C.COUNTERS) - {"FIN", "CMN", "YUE", "VIE", "KOR", "JPN", "THA"}
 DEFAULTS = {"i_attachment": "code", "vietnamese_tone": "code", "ownership": "left",
             "finnish_boundaries": "code", "stress": "unmarked", "korean_g2p": "isolated",
-            "turkish_soft_g": "code", "french_cuts": "code"}
+            "turkish_soft_g": "code", "french_cuts": "code", "onset_rule": "amended"}
 # Row 48 describes missing cuts rather than a defined alternative algorithm.
 # The maximal-onset decision supplies row 48's missing algorithm, not a new fork.
 UNDEFINED_ROWS = {
@@ -53,6 +54,12 @@ BOUNDARY_ROWS = {
     52: {"setting": "korean_g2p", "values": ("isolated", "whole_phrase"), "options": (("KOR", "A"),)},
     53: {"setting": "turkish_soft_g", "values": ("code", "lengthened_phones"),
          "options": (("TUR", "A"), ("TUR", "B"))},
+    # The pre-registered onset rule (maximal onset over word-initial clusters only, 2026-10-10) against the amended
+    # one (2026-11-02), as a declared one-at-a-time sensitivity check after the freeze (Brett, 2026-11-02). Every
+    # language whose word-internal cuts use the inventory; Finnish's default boundaries don't (row 50 covers it).
+    54: {"setting": "onset_rule", "values": ("amended", "pre_registered"),
+         "options": tuple((language, option) for language in ("CAT", "DEU", "ENG", "EUS", "FRA", "HUN", "ITA", "SPA",
+                                                               "SRP", "TUR") for option in C.COUNTERS[language])},
 }
 
 
@@ -120,6 +127,110 @@ def _cut(texts, start, stop, legal):
     return stop
 
 
+# The amended onset rule (Brett, 2026-11-02; DECISIONS.md). The inventory is learned from the starts of words,
+# where Spanish, Catalan and Basque have their voiced plosives only as plosives; between vowels and after most
+# consonants they're approximants (Martínez-Celdrán et al. 2003; Carbonell & Llisterri 1992; Bedialauneta
+# Txurruka & Hualde 2023). These equivalences decide only whether an onset is legal; labels keep the symbols.
+LICENSING = {language: {"β": "b", "ð": "d", "ɣ": "ɡ"} for language in ("SPA", "CAT", "EUS")}
+# Italian /ɲ ʃ ʎ ts dz/ "are always geminate when intervocalic" (Rogers & d'Arcangeli 2004: 117; the intrinsic
+# geminates of Bertinetto & Loporcaro 2005: 134, ascia [ˈaʃːa]), treated so under the Standard Italian convention
+# adopted here; espeak-ng writes them short (pesce pˈeʃe), except ɲ, which it doubles (bagno bˈaɲɲo).
+ALWAYS_LONG = {"ITA": frozenset({"ɲ", "ʃ", "ʎ", "t͡s", "d͡z"})}
+# Sequences the reader writes for one segment: espeak-ng's Basque *y* (`jj`).
+ONE_SEGMENT = {"EUS": frozenset({("j", "j")})}
+GLIDES = frozenset({"j", "w", "ɥ"})  # the first part of a rising diphthong (Martínez-Celdrán et al. 2003), not an onset consonant
+TIES = ("͡", "͜")
+# Consonants the last-consonant rule leaves where maximal onset puts them, in the coda unless legal (Brett,
+# 2026-11-02, after his spot-check). English [ŋ] "is limited to the coda and prohibited in the onset", so singer
+# is sɪŋ.ə (Peng 2013, ch. 2). German: espeak-ng writes r between vowels within a morpheme as [r] (Ware, Ehre)
+# and a lone [ɾ] between vowels where it reads the r as closing a prefix before a vowel-initial stem (ver-, er-,
+# vor-: Ver|ehrer, er|innern), a stem that begins with a glottal stop (Kohler 1990); it stays in the coda. (It
+# also writes [ɾ] after a consonant, drei dɾaɪ, which legal clusters handle.) In the 5,000-line sample, 38 of
+# the 42 tokens this affects are such prefixes; 4 are names or a loan read as prefixed (Erich, Erika, zero).
+CODA_ONLY = {"ENG": frozenset({"NG"}), "DEU": frozenset({"ɾ"})}
+
+
+def _long(unit, language):
+    """A length-marked unit, or one ALWAYS_LONG lists, whichever tie bar it's written with."""
+    return unit.endswith("ː") or unit.replace("͜", "͡") in ALWAYS_LONG.get(language, ())
+
+
+def _first_half(unit, language):
+    """A split long consonant's first half: the unit without its length mark; an Italian affricate's plosive."""
+    short = unit.removesuffix("ː")
+    if language == "ITA" and any(tie in short for tie in TIES):
+        return short.replace("͜", "͡").split("͡")[0]
+    return short
+
+
+def _basque_onset(units):
+    """The only Basque onset groups are muta cum liquida, with fl- and fr-, without dl- and tl- (Hualde 2003, §2.1.3.1).
+    Trailing glides (a rising diphthong's) don't count; espeak's `j j`, Basque *y*, is a consonant."""
+    core = list(units)
+    while len(core) > 1 and core[-1] in GLIDES and tuple(core[-2:]) != ("j", "j"):
+        core.pop()
+    if len(core) < 2:
+        return True
+    return (len(core) == 2 and core[0] in {"p", "b", "t", "d", "k", "ɡ", "c", "ɟ", "f"} and core[1] in {"l", "ɾ"}
+            and tuple(core) not in {("d", "l"), ("t", "l")})
+
+
+def _spanish_onset(units):
+    """Medially, /s/ before a consonant closes the syllable (Ramsammy 2023, §1.2: tɾans.pa.ɾen.te), so no onset has
+    /s/ followed by any consonant other than a glide."""
+    return not any(u == "s" and any(v not in GLIDES for v in units[i + 1:]) for i, u in enumerate(units))
+
+
+def _turkish_onset(units):
+    """Word-internally one consonant: "In an intervocalic cluster of two consonants, a syllable boundary divides
+    the consonants, VC.CV", and three give VCC.CV; word-edge clusters stay in one syllable (Myers & Crowhurst,
+    Phonology: case studies, Turkish; Brett, 2026-11-02). Loan clusters learned from the starts of words (kl, tɾ)
+    so don't cut odak+lan as o.da.klan."""
+    return len(units) == 1
+
+
+# Language-specific limits on which learned clusters may begin a word-internal syllable; they apply to the
+# LICENSING equivalents, so Basque [βɾ] is judged as [bɾ].
+ONSET_CONSTRAINTS = {"EUS": _basque_onset, "SPA": _spanish_onset, "TUR": _turkish_onset}
+
+
+def _word_cut(texts, start, stop, legal, language):
+    """The cut between two nuclei of one word: (position, split), split None or (coda text, onset text, end),
+    end being where the split consonant's positions stop.
+
+    The last consonant before the second nucleus (one segment: ONE_SEGMENT) always begins its syllable, whether
+    or not it begins words: for Spanish, Ramsammy 2023 ("intervocalic consonants exceptionlessly syllabify
+    with following vowels"); for Basque, Hualde 2003 ("Stops or affricates are not allowed in word-internal
+    codas", so a[n.ts]e, not [ants.]e); CODA_ONLY consonants excepted. A long one is split, its first half closing the first syllable and its
+    second opening the next (Bertinetto & Loporcaro 2005; Szende 1994; Rogers & d'Arcangeli 2004, for whom an
+    Italian affricate's first half is its plosive element); before a liquid, its second half joins the
+    liquid's onset if that onset is legal (Bertinetto & Loporcaro 2005: af.flit.to). An onset of more than one
+    consonant must be legal, or have a legal LICENSING equivalent, within the language's ONSET_CONSTRAINTS,
+    and the longest such onset is taken (maximal onset).
+    """
+    if start == stop:
+        return stop, None
+    if legal is None:
+        raise ValueError("An explicit onset inventory is required for consonant cuts")
+    units, begins = O.tied_units(texts, start, stop)
+    equivalent, allowed = LICENSING.get(language, {}), ONSET_CONSTRAINTS.get(language, lambda units: True)
+    licensed = lambda onset: ((onset in legal or tuple(equivalent.get(u, u) for u in onset) in legal)
+                              and allowed(tuple(equivalent.get(u, u) for u in onset)))
+    first = units[0]
+    if _long(first, language):
+        short = first.removesuffix("ː")
+        end = begins[1] if len(units) > 1 else stop
+        if len(units) == 1 or licensed((short,) + units[1:]):
+            return end, (_first_half(first, language), short, end)
+    last = len(units) - (2 if units[-2:] in ONE_SEGMENT.get(language, ()) else 1)
+    if units[-1] in CODA_ONLY.get(language, ()):
+        last = len(units)  # not forced into the onset; legal onsets only
+    for i, beginning in enumerate(begins):
+        if i >= last or licensed(units[i:]):
+            return beginning, None
+    return stop, None
+
+
 def _phone_segments(result, language, legal, settings):
     texts, words, groups = O.effective_trace(result, language)
     texts = list(texts)
@@ -141,6 +252,7 @@ def _phone_segments(result, language, legal, settings):
                 texts[i] = ""
     assignment = [None] * len(texts)
     attached = {a.word: a.nucleus for a in result.attachments}
+    opening = {}  # syllable -> the second half of a long consonant split before it
     for w in range(len(result.tokens)):
         positions = [i for i, owner in enumerate(words) if owner == w]
         local = [(s, min(gp), max(gp)) for s, g in enumerate(groups)
@@ -166,18 +278,29 @@ def _phone_segments(result, language, legal, settings):
                     raise ValueError("Lexique syllables disagree with effective phones")
                 continue
         cuts = [positions[0]]
-        for (_, _, last), (_, first, _) in zip(local, local[1:]):
+        for (_, _, last), (following, first, _) in zip(local, local[1:]):
             start, stop = last + 1, first
             if language == "FIN" and settings["finnish_boundaries"] == "all_cluster_onset":
                 cut = start
+            elif settings.get("onset_rule") == "pre_registered":
+                cut = _cut(texts, start, stop, legal)  # row 54's check arm: the rule as pre-registered
             else:
-                cut = _cut(texts, start, stop, legal)
+                cut, split = _word_cut(texts, start, stop, legal, language)
+                if split:
+                    # The second half is prepended to the next syllable, so nothing of another word may come
+                    # before it there: the syllable is a later nucleus of this word, split once.
+                    if (following in opening or any(words[i] != w for i in groups[following] if i < first)
+                            or any(a.nucleus == following and a.word < w for a in result.attachments)):
+                        raise ValueError("A split long consonant must open a syllable that starts in its own word")
+                    coda, onset, end = split
+                    texts[start:end] = [coda] + [""] * (end - start - 1)
+                    opening[following] = onset
             cuts.append(cut)
         cuts.append(positions[-1] + 1)
         for (s, _, _), start, stop in zip(local, cuts, cuts[1:]):
             for i in range(start, stop):
                 assignment[i] = s
-    bodies = [[] for _ in groups]
+    bodies = [[opening[s]] if s in opening else [] for s in range(len(groups))]
     marks = [[] for _ in groups]
     for i, (text, s) in enumerate(zip(texts, assignment)):
         if s is None:

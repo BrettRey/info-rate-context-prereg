@@ -19,6 +19,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import traceback
 from unittest.mock import patch
 import unicodedata as U
 
@@ -43,7 +44,7 @@ FAILURE_MESSAGES = frozenset({
     'A Thai syllable must have a body and explicit tone', 'Unhandled Thai tone or syllable body',
     'Missing/empty Thai syllable', 'Pinned Thai model missing; downloads disabled',
     'Only the pinned local Thai model may be read', 'Thai neural adapter requires CPU',
-    'Thai G2P requires Thai-script word units', 'Unknown Thai G2P',
+    'Thai G2P requires Thai-script word units', 'Unknown Thai G2P', 'TLTK failed on the word',
     'Thai word failed the selected reader', 'Thai word failed both G2P tools',
     'Thai repeat mark has no preceding word', 'Unknown Thai word segmenter',
     'Offline attacut worker exited', 'Thai word segmenter changed source spelling',
@@ -108,13 +109,35 @@ def neural():
     return module
 
 
+# TLTK's two failures on single words, found by the counts run on Fir and a preflight over every newmm word of
+# the three Thai corpora (2026-10-28): its sound table lacks a letter (KeyError in ReplaceSnd), or its own
+# intermediate reading holds more than one translation mark (ValueError unpacking in th2ipa). Each is TLTK
+# failing on the word, so the word goes to the neural model (Brett, 2026-10-10). Matched by exact type and the
+# raising function in tltk/nlp.py; any other exception from TLTK stays a fault (Codex review 2026-10-28).
+TLTK_FAILURES = frozenset({(KeyError, 'ReplaceSnd'), (ValueError, 'th2ipa')})
+
+
+def _tltk_failure(error):
+    frames = traceback.extract_tb(error.__traceback__)
+    return bool(frames) and (type(error), frames[-1].name) in TLTK_FAILURES and \
+        Path(frames[-1].filename).as_posix().endswith('/tltk/nlp.py')
+
+
 @lru_cache(maxsize=32768)
 def transcribe(word, tool='tltk'):
     if not word or any(not ('\u0e01' <= c <= '\u0e5b') for c in word):
         raise ValueError('Thai G2P requires Thai-script word units')
     if tool == 'tltk':
         from pythainlp.transliterate.tltk import tltk_ipa
-        value = tltk_ipa(word)
+        failed = False
+        try:
+            value = tltk_ipa(word)
+        except (KeyError, ValueError) as error:
+            if not _tltk_failure(error):
+                raise
+            failed = True
+        if failed:  # raised outside the handler: the known failure is classified, so its context isn't a fault
+            raise ValueError('TLTK failed on the word')
     elif tool == 'thaig2p':
         import torch
         with torch.inference_mode():

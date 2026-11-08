@@ -1,0 +1,31 @@
+{
+ "schema": "onset-amendment-decomposition-v1",
+ "language": "SPA",
+ "option": "A",
+ "settings": {
+  "ownership": "left",
+  "stress": "unmarked"
+ },
+ "onsets_tsv_sha256": "c301d99db1f64517e9f9e78586c491114ea55f5e65325c39d6d558d115b04830",
+ "segment_sha256": "d3fac5d498f0c7e77d0989e136efdad1751910cad0080bcd96afc6a1e7e59f69",
+ "initialism_clusters": [],
+ "sample": {
+  "every": 200,
+  "limit": 5000,
+  "lines": 5000,
+  "counter_failed": 0,
+  "segment_skipped": 14,
+  "syllable_tokens": 51516
+ },
+ "changed_share": {
+  "lone": 0.22509511608044103,
+  "licensing": 0.1654243341874369,
+  "initialisms": 0.0,
+  "limits": 0.06931827005202268,
+  "geminates": 0.0,
+  "all": 0.30246913580246915
+ },
+ "geminate_split_token_share": 0.0,
+ "seconds": 79.2,
+ "script_sha256": "4a8f10644a3215ae9d6f587599863119b79a125b76c6ac7037c5728c19a097c2"
+}

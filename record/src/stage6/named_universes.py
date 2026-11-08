@@ -25,6 +25,8 @@ import math
 from pathlib import Path
 
 SCHEMA = 'named-universes-v1'
+# Present only when NS-closest is undefined: the closest among the options that completed, labelled.
+SECONDARY = 'NS-closest (completed options)'
 
 
 @_boundary
@@ -114,10 +116,11 @@ def build(languages, shared_settings, *, ns_lens=None, registry=None):
                       alias_reason='registry has no dictionary alternative')
     closest = dict(name='NS-closest', status='pending', shared=shared,
                    reason='NS lens output with a complete production selection is required')
+    declarations = [first, dictionary, closest]
     if ns_lens is not None:
         ns_lens, report_sha256 = read_lens_report(ns_lens)
-        target = ns_lens.get('ns_closest')
-        if target is not None:
+
+        def selection(name, target):
             if set(target['languages']) != set(languages):
                 raise ValueError('NS-closest selection must cover exactly the declared languages')
             score = target.get('calibration_score')
@@ -139,12 +142,24 @@ def build(languages, shared_settings, *, ns_lens=None, registry=None):
                 if config not in module.universes(language):
                     raise ValueError('NS-closest configuration is outside production registry')
                 selected[language] = config
-            closest = dict(name='NS-closest', status='ready', shared=shared,
-                           options={l: options_for(c, module.REGISTRY) for l, c in selected.items()},
-                           configurations=selected, calibration_score=score,
-                           provenance=dict(schema=ns_lens['schema'], scope=target.get('scope'),
-                                           tie_rule=ns_lens.get('tie_rule'), report_sha256=report_sha256))
-    declarations = [first, dictionary, closest]
+            return dict(name=name, status='ready', shared=shared,
+                        options={l: options_for(c, module.REGISTRY) for l, c in selected.items()},
+                        configurations=selected, calibration_score=score,
+                        provenance=dict(schema=ns_lens['schema'], scope=target.get('scope'),
+                                        tie_rule=ns_lens.get('tie_rule'), report_sha256=report_sha256))
+
+        target = ns_lens.get('ns_closest')
+        if target is not None:
+            declarations[2] = selection('NS-closest', target)
+        elif ns_lens.get('ns_closest_status') == 'undefined':
+            # Brett, 2026-10-15: NS-closest undefined, with the closest among the options that completed
+            # as a labelled secondary, never without the primary.
+            declarations[2] = dict(closest, reason='undefined: a production option failed on a read text; '
+                                                   'the NS lens report lists the failures')
+            secondary = ns_lens.get('ns_closest_secondary')
+            if secondary is not None:
+                declarations.append(dict(selection(SECONDARY, secondary), label=secondary['label'],
+                                         secondary_of='NS-closest'))
     return dict(schema=SCHEMA, shared_settings=copy.deepcopy(shared_settings),
                 declarations={e: copy.deepcopy(declarations) for e in ('kenlm', 'neural')})
 

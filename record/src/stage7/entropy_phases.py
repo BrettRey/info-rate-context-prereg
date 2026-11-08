@@ -5,7 +5,11 @@ lens check it too). From a counts-phase run record (src/stage7/counts_phase.py):
 
 1. Read texts: syllable counts on the read texts in every configuration of the
    main-run panel (`ns_lens.run_files`), giving each configuration's canonical,
-   matched and paper-subset speech rates and the NS-closest selection.
+   matched and paper-subset speech rates and the NS-closest selection. The
+   same comparison on all texts (digits and letters by the fixed readings) is
+   reported beside it and selects nothing. If NS-closest is undefined, the
+   closest among the options that completed is a labelled secondary named
+   universe (Brett, 2026-10-15).
 2. KenLM in every preparation of every run, each job carrying its
    configuration's rates (the rates are analysis metadata, not inputs).
 3. Neural in the first-listed universe (the jobs the counts phase prepared for
@@ -509,7 +513,7 @@ def run_materialised(jobs, work, **options):
 
 def run(record_path, work, *, root=ROOT, readings, texts, freeze_archive=None, freeze_proof=None,
         block_headers=None, simulated=False, estimator=None, estimator_version=None, lens_backends=None,
-        prepare_backends=None):
+        prepare_backends=None, digit_readings=None):
     """All entropy phases from a counts-phase run record; returns and writes the entropy record."""
     root = Path(root).resolve(); work = Path(work).resolve()
     if not work.is_relative_to(root):
@@ -531,6 +535,10 @@ def run(record_path, work, *, root=ROOT, readings, texts, freeze_archive=None, f
     # 1. Read texts: rates per configuration and the NS-closest selection.
     lens, matched = LENS.run_files(readings, texts, work / 'lens', configs=configs, backends=lens_backends, **freeze)
     rates = {row['configuration_id']: row['rates'] for row in matched}
+    # 1b. The same comparison on all texts, digits and letters read by the fixed readings: reported beside
+    # the primary, never used to select (Brett, 2026-10-18). The fixed table unless a rehearsal supplies one.
+    lens_all, _ = LENS.run_files(readings, texts, work / 'lens-all-texts', configs=configs, backends=lens_backends,
+                                 subset='secondary', digit_readings=digit_readings, **freeze)
     # 2. KenLM everywhere.
     runner_options = dict(estimator=estimator, estimator_version=estimator_version, limit_bytes=RUN_LIMIT_BYTES, **freeze)
     kenlm = run_by_preparation(preparations(record, root), rates, work / 'kenlm', work / 'escape',
@@ -559,6 +567,14 @@ def run(record_path, work, *, root=ROOT, readings, texts, freeze_archive=None, f
             if any((a['documents'], a['splits'], a.get('provisional_mask')) !=
                    (first['documents'], first['splits'], first.get('provisional_mask')) for a in argument_sets):
                 raise ValueError('The budget labels of one text variant must share documents, splits and mask')
+            # It is given the counts phase's removal mask and G2P cache (2026-11-01): built again, Thai's mask
+            # and readings can differ from the counts phase's (DECISIONS.md, 2026-10-29), and a word read
+            # afresh can fail on a line the mask keeps.
+            if len({p['removal_mask_sha256'] for p in group}) != 1:
+                raise ValueError('The budget labels of one text variant must share one removal mask')
+            removal = (root / group[budgets.index('B')]['inputs']).parent / 'removal-mask.json'
+            if P.read_mask(removal)['sha256'] != group[0]['removal_mask_sha256']:
+                raise ValueError("The counts phase's removal mask differs from its run record")
             labels = [dict(output=(root / p['inputs']).parent.with_name(Path(p['inputs']).parent.name + '-ns-closest'),
                            shared=a['shared'], budget=a['budget']) for p, a in zip(group, argument_sets)]
             L.prepare(first['documents'], first['splits'], first['language'],
@@ -566,10 +582,11 @@ def run(record_path, work, *, root=ROOT, readings, texts, freeze_archive=None, f
                       gap_treatment=first['gap_treatment'], simulated=False, labels=labels,
                       named_inputs=dict(CP.named_inputs(), ns_lens=str(work / 'lens' / 'lens.json')),
                       neural_settings=first['neural_settings'],
-                      provisional_mask=root / first['provisional_mask'] if first.get('provisional_mask') else None)
+                      provisional_mask=root / first['provisional_mask'] if first.get('provisional_mask') else None,
+                      removal_mask=removal, g2p_cache=CP.g2p_cache(Path(record_path).resolve().parent, first['language']))
             neural_jobs += [j for j in L.preparation_jobs(labels[budgets.index('B')]['output'] / 'inputs.json',
                                                           estimator='neural')
-                            if j.get('named_universe') == 'NS-closest']
+                            if j.get('named_universe') in ('NS-closest', NAMED.SECONDARY)]
     neural_jobs = one_estimate_each(neural_jobs)
     neural = run_materialised(with_rates(neural_jobs, rates), work / 'neural', **runner_options) if neural_jobs else None
     # 4. Assembly, reports, plateau, and the lens on the first-listed universes.
@@ -634,7 +651,11 @@ def run(record_path, work, *, root=ROOT, readings, texts, freeze_archive=None, f
         E.F.unchanged_since(authorization)
     result = dict(schema=SCHEMA, run_record_sha256=record['sha256'], simulated=simulated,
                   authorization=authorization, lens=str((work / 'lens' / 'lens.json').relative_to(root)),
-                  ns_closest=lens.get('ns_closest'), kenlm=dict(completed=len(kenlm['completed']), stopped=kenlm['stopped']),
+                  ns_closest=lens.get('ns_closest'),
+                  **{k: lens[k] for k in ('ns_closest_status', 'ns_closest_secondary') if k in lens},
+                  lens_all_texts=dict(lens=str((work / 'lens-all-texts' / 'lens.json').relative_to(root)),
+                                      ns_closest=lens_all.get('ns_closest'), selects=False),
+                  kenlm=dict(completed=len(kenlm['completed']), stopped=kenlm['stopped']),
                   neural=None if neural is None else dict(completed=len(neural['completed']), stopped=neural['stopped']),
                   groups=main_groups['groups'], issues=main_groups['issues'], report=report,
                   plateau_rows=len(plateau['rows']), calibration_universes=len(universes),

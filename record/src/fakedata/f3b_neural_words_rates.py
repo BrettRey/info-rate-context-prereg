@@ -3,7 +3,9 @@
 Sequential fits, held-out validation, bounded lines, no saved model/text files.
 The full design matches f3b_words_rates (14 rungs, four families, three pairings,
 S0/S1, 17 languages, 10M/1M train/test, lines of 1000). Validation uses 500K.
-Only dimensions and budgets may be reduced for the CPU smoke design.
+Only dimensions and budgets may be reduced for the CPU smoke design. --budget runs
+the full design at one other training budget, on the CPU too (the check at the real
+B0, DECISIONS.md 2026-11-01).
 """
 import argparse
 import csv
@@ -89,11 +91,13 @@ def fit_key(row, rung, config):
 def configuration(*, small=False, device="cpu", run_tag, families=tuple(W.E.FAMILIES),
         pairings=W.E.PAIRINGS, rungs=W.RUNGS, inventories=None, targets=None,
         n_train=None, n_val=None, n_test=None, line=None, dim=None, hidden=None,
-        process_cap_bytes=100_000_000, margin_bytes=2*D.GIB):
+        process_cap_bytes=100_000_000, margin_bytes=2*D.GIB, budget=None):
     base = seed_base(run_tag)
     if device not in ("cpu", "mps"):
         raise ValueError("device must be cpu or mps")
     overrides = (inventories, targets, n_train, n_val, n_test, line, dim, hidden)
+    if budget is not None and (small or any(value is not None for value in overrides)):
+        raise ValueError("--budget runs the full design at one training budget; no other overrides")
     if not small and any(value is not None for value in overrides):
         raise ValueError("full budgets/inventories/settings are fixed; size overrides require --small")
     defaults = (dict(inventories=[20,40,60], targets=[2.,2.3,2.6], n_train=100_000,
@@ -102,6 +106,8 @@ def configuration(*, small=False, device="cpu", run_tag, families=tuple(W.E.FAMI
                      n_val=F1.FULL["n_val"], n_test=W.E.F.N_TEST, line=W.E.B.LINE, dim=128, hidden=512))
     values = dict(zip(("inventories","targets","n_train","n_val","n_test","line","dim","hidden"), overrides))
     values = {key: defaults[key] if value is None else value for key,value in values.items()}
+    if budget is not None:
+        values["n_train"] = budget
     inventories = list(map(int, values.pop("inventories")))
     targets = list(map(float, values.pop("targets")))
     if (not 3 <= len(inventories) < 100_000 or len(inventories) != len(targets)
@@ -115,7 +121,7 @@ def configuration(*, small=False, device="cpu", run_tag, families=tuple(W.E.FAMI
     if (any(type(value) is not int or value < 1 for value in values.values())
             or any(values[key] % values["line"] for key in ("n_train","n_val","n_test"))):
         raise ValueError("positive dimensions and whole-line budgets required")
-    if device == "cpu" and values["n_train"] > 1_000_000:
+    if device == "cpu" and values["n_train"] > 1_000_000 and budget is None:
         raise ValueError("CPU smoke runs limited to 1M training tokens")
     if (type(process_cap_bytes) is not int or process_cap_bytes < 1_000_000
             or type(margin_bytes) is not int or margin_bytes < 2*D.GIB):
@@ -123,7 +129,7 @@ def configuration(*, small=False, device="cpu", run_tag, families=tuple(W.E.FAMI
     sources = [Path(__file__), Path(W.__file__), Path(W.E.__file__), Path(W.E.B.__file__),
         Path(W.E.A.__file__), Path(W.R.__file__), Path(D.__file__), Path(F1.__file__), Path(F1.C.__file__)]
     code = hashlib.sha256(b"".join(path.read_bytes() for path in sources) + F1.T.code_id().encode()).hexdigest()
-    return dict(values, schema="neural-f3b-words-rates-v1", estimator="ffnn", small=small,
+    return dict(values, schema="neural-f3b-words-rates-v1", estimator="ffnn", small=small, budget=budget,
         device=device, run_tag=run_tag, families=list(families), pairings=list(pairings), rungs=list(rungs),
         inventories=inventories, targets=targets, settings=F1.settings_for(values), setting=F1.SETTING,
         lengths=W.LENGTHS.tolist(), target_kind="line-averaged-plain-4", boundary_signal=False,
@@ -305,6 +311,7 @@ def main():
     parser.add_argument("--targets", nargs="+", type=float)
     for name in ("n_train","n_val","n_test","line","dim","hidden"):
         parser.add_argument("--"+name.replace("_","-"), type=int)
+    parser.add_argument("--budget", type=int, help="the full design at this training budget (CPU allowed)")
     parser.add_argument("--dry-run", action="store_true")
     args = vars(parser.parse_args())
     work, prefix, shared, dry = (args.pop(name) for name in ("work","prefix","reservation_dir","dry_run"))

@@ -1194,6 +1194,11 @@ def named_intervals(groups, readings, n_panel=1000, n_population=2000, seed=0,
     return clean(output)
 
 
+def _cells(row):
+    """One TSV row: nested labels are JSON and absent values are blank."""
+    return {key: RUNNER.canonical(value) if isinstance(value, (dict, list, tuple)) else
+            '' if value is None else value for key, value in clean(row).items()}
+
 @_boundary
 def table_text(rows):
     """Portable TSV: nested labels are JSON and absent values are blank."""
@@ -1202,14 +1207,56 @@ def table_text(rows):
     writer = csv.DictWriter(stream, fields, delimiter='\t', lineterminator='\n')
     writer.writeheader()
     for row in rows:
-        writer.writerow({key: RUNNER.canonical(value) if isinstance(value, (dict, list, tuple)) else
-                         '' if value is None else value for key, value in clean(row).items()})
+        writer.writerow(_cells(row))
     return stream.getvalue()
 
-@_boundary
-def plugin_continuity(groups):
-    """Paper continuity estimates and R; never substitute them into group R."""
-    estimates, ratios, missing = [], [], []
+class _StreamedTable:
+    """table_text's bytes without holding the rows: `rows` returns a fresh iterator of rows with one key order, and
+    runs once to size and count the table, then again to write it (rehearsal 4, 2026-10-18: the 3.2 million
+    continuity rows, held and copied, were the report step's 35–59 GB plateau)."""
+
+    @_boundary
+    def __init__(self, rows, observe=None):
+        self.rows = rows
+        self.size = 0
+        for row, text in self._lines():
+            if observe is not None and row is not None:
+                observe(row)
+            self.size += len(text.encode())
+
+    def _lines(self):
+        stream = io.StringIO(newline='')
+        writer = fields = None
+        for row in self.rows():
+            if writer is None:
+                fields = list(row)
+                writer = csv.DictWriter(stream, fields, delimiter='\t', lineterminator='\n')
+                writer.writeheader()
+            elif list(row) != fields:
+                raise ValueError('a streamed table needs the same keys, in the same order, in every row')
+            writer.writerow(_cells(row))
+            yield row, stream.getvalue()
+            stream.seek(0)
+            stream.truncate()
+        if writer is None:
+            csv.DictWriter(stream, [], delimiter='\t', lineterminator='\n').writeheader()
+            yield None, stream.getvalue()
+
+    @_boundary
+    def write(self, path):
+        with path.open('w') as handle:  # write_text's encoding and newlines
+            for _, text in self._lines():
+                handle.write(text)
+
+def _table_size(value):
+    return value.size if isinstance(value, _StreamedTable) else len(value.encode())
+
+CONTINUITY = dict(label='Continuity check with the paper', density_source='training_plugin',
+                  separate_from_multiverse_R=True)
+
+def _continuity_estimates(groups):
+    """Each KenLM job's training plug-in at rungs 0 and 1w, and the jobs without one."""
+    estimates, missing = [], []
     for g in groups:
         if g['estimator'].get('name', 'kenlm') != 'kenlm':
             continue
@@ -1223,32 +1270,83 @@ def plugin_continuity(groups):
                         missing.append(dict(common, reason='training plug-in absent from cache'))
                     else:
                         estimates.append(dict(common, **plugin))
+    return estimates, missing
+
+def _continuity_R(selected, sr, rung):
+    """One selection's continuity R at one rung from its training plug-ins, and whether it is defined."""
+    plugins = [r['scores'][rung].get('plugin') for r in selected]
+    values = [p['id_bits'] for p in plugins if p is not None]
+    available = len(values) == len(selected) and all(x > 0 for x in values)
+    return (float(A.ladder(np.log(values)[:, None], sr)[0][0]) if available else None), available
+
+def _continuity_rows(groups):
+    """Each KenLM universe's continuity rows, one at a time."""
+    for g in groups:
+        if g['estimator'].get('name', 'kenlm') != 'kenlm':
+            continue
         for u, choice in enumerate(g['choices']):
             selected = [g['records'][l][c] for l, c in enumerate(choice)]
             sr = np.log([job_metadata(r)['rates']['mean_sr'] for r in selected])
             for rung in ('0', '1w'):
-                plugins = [r['scores'][rung].get('plugin') for r in selected]
-                values = [p['id_bits'] for p in plugins if p is not None]
-                available = len(values) == len(selected) and all(x > 0 for x in values)
-                ratio = float(A.ladder(np.log(values)[:, None], sr)[0][0]) if available else None
-                ratios.append(dict(shared=g['shared'], estimator=g['estimator'], universe_index=u,
-                                   name=g['names'][u] if g['names'] else None, options=universe_options(g, u),
-                                   rung=rung, R=ratio, density_source='training_plugin',
-                                   status='reported' if available else 'unavailable',
-                                   reason=None if available else 'missing or zero plug-in; logarithmic R is undefined'))
-    return clean(dict(label='Continuity check with the paper', density_source='training_plugin',
-                      separate_from_multiverse_R=True, estimates=estimates, ratios=ratios, missing=missing))
+                ratio, available = _continuity_R(selected, sr, rung)
+                yield dict(shared=g['shared'], estimator=g['estimator'], universe_index=u,
+                           name=g['names'][u] if g['names'] else None, options=universe_options(g, u),
+                           rung=rung, R=ratio, density_source='training_plugin',
+                           status='reported' if available else 'unavailable',
+                           reason=None if available else 'missing or zero plug-in; logarithmic R is undefined')
 
-def _continuity_summary(continuity):
-    """The continuity block for summary.json: the per-universe rows stay in plugin-continuity-R.tsv."""
-    counts = {}
-    for row in continuity['ratios']:
-        cell = counts.setdefault(row['rung'], dict(rows=0, reported=0, unavailable=0))
-        cell['rows'] += 1
-        cell['reported' if row['status'] == 'reported' else 'unavailable'] += 1
-    return dict({key: value for key, value in continuity.items() if key != 'ratios'},
-                ratios_table='plugin-continuity-R.tsv', ratio_counts=counts,
-                named_ratios=[row for row in continuity['ratios'] if row['name'] is not None])
+@_boundary
+def plugin_continuity(groups):
+    """Paper continuity estimates and R; never substitute them into group R."""
+    estimates, missing = _continuity_estimates(groups)
+    return clean(dict(CONTINUITY, estimates=estimates, ratios=list(_continuity_rows(groups)), missing=missing))
+
+def _named_continuity(groups):
+    """The named universes' continuity R (Brett, 2026-10-18). A multiverse KenLM setting names no universe and
+    may not have drawn a named one, so each named selection's KenLM records are looked up by exact options in
+    every KenLM setting with the same shared settings and languages, as the estimator comparison does."""
+    kenlm = [g for g in groups if g['estimator'].get('name', 'kenlm') == 'kenlm']
+    rows, seen = [], set()
+    for g in groups:
+        for u, name in enumerate(g['names'] or []):
+            options = universe_options(g, u)
+            key = RUNNER.canonical([name, g['shared'], options])
+            if key in seen:
+                continue
+            seen.add(key)
+            found = False
+            for k in kenlm:
+                if k['shared'] != g['shared'] or k['languages'] != g['languages']:
+                    continue
+                selected = []
+                for language, records in zip(k['languages'], k['records']):
+                    matches = [r for r in records if job_metadata(r)['options'] == options[language]]
+                    if len(matches) != 1:
+                        break
+                    selected.append(matches[0])
+                if len(selected) != len(k['languages']):
+                    continue
+                found = True
+                sr = np.log([job_metadata(r)['rates']['mean_sr'] for r in selected])
+                for rung in ('0', '1w'):
+                    ratio, available = _continuity_R(selected, sr, rung)
+                    rows.append(dict(name=name, shared=g['shared'], estimator=k['estimator'], options=options,
+                                     kenlm_jobs={l: r['job_id'] for l, r in zip(k['languages'], selected)},
+                                     rung=rung, R=ratio, density_source='training_plugin',
+                                     status='reported' if available else 'unavailable',
+                                     reason=None if available else 'missing or zero plug-in; logarithmic R is undefined'))
+            if not found:
+                rows.append(dict(name=name, shared=g['shared'], estimator=None, options=options, kenlm_jobs=None,
+                                 rung=None, R=None, density_source='training_plugin', status='unavailable',
+                                 reason='no KenLM setting has these shared settings, languages and options'))
+    return rows
+
+def _continuity_summary(groups, counts):
+    """The continuity block for summary.json: the estimates, the counts of the per-universe rows (which are in
+    plugin-continuity-R.tsv) and the named universes' rows."""
+    estimates, missing = _continuity_estimates(groups)
+    return clean(dict(CONTINUITY, estimates=estimates, missing=missing, ratios_table='plugin-continuity-R.tsv',
+                      ratio_counts=counts, named_ratios=_named_continuity(groups)))
 
 
 @_boundary
@@ -1283,6 +1381,9 @@ def write_outputs(groups, out, seed=0, pooling="equal-setting", guard=None, inte
                    variation="one-fork marginal variance ratios, which overlap and do not sum to one; "
                              "interaction uses the universe- and rung-centred ladder",
                    matched_count="canonical mean SR remains R's denominator; matched v/r are not relabelled as ID statistics",
+                   ns_closest_note="NS chooses the NS-closest universe (each language's option whose read-text syllable "
+                                   "counts are closest to NS) and also enters every universe's rate through SR (NS over "
+                                   "duration), so the NS-closest universe's R uses NS twice (Brett, 2026-10-18)",
                    groups=[g["summary"] for g in groups])
     comparison = estimator_comparison(groups)
     diagnostic_report = diagnostic_tables(groups, diagnostics)
@@ -1294,19 +1395,25 @@ def write_outputs(groups, out, seed=0, pooling="equal-setting", guard=None, inte
               'each option\'s R_distribution is reported under by_fork beside the spread across options')
     summary['estimator_comparison'] = comparison
     summary['diagnostics'] = diagnostic_report
-    continuity = plugin_continuity(groups)
-    # One row per universe and rung is millions of rows, so the summary names the TSV (Brett, 2026-10-18).
-    summary['plugin_continuity'] = _continuity_summary(continuity)
+    # One row per universe and rung is millions of rows, so the summary names the TSV (Brett, 2026-10-18),
+    # which is written row by row.
+    counts = {}
+    def count(row):
+        cell = counts.setdefault(row['rung'], dict(rows=0, reported=0, unavailable=0))
+        cell['rows'] += 1
+        cell['reported' if row['status'] == 'reported' else 'unavailable'] += 1
+    ratios_table = _StreamedTable(lambda: _continuity_rows(groups), count)
+    continuity = _continuity_summary(groups, counts)
+    summary['plugin_continuity'] = continuity
     tables = {'estimator-comparison.tsv': table_text(comparison['estimates']),
               'estimator-contrasts.tsv': table_text(comparison['contrasts']),
               'plugin-estimates.tsv': table_text(continuity['estimates']),
-              'plugin-continuity-R.tsv': table_text(continuity['ratios'])}
-    del continuity
+              'plugin-continuity-R.tsv': ratios_table}
     for name, key in [('cancellation', 'cancellation'), ('context-spans', 'context_spans'),
                       ('option-changes', 'option_changes'), ('absolute-information-rates', 'absolute_information_rates')]:
         tables[name+'.tsv'] = table_text(diagnostic_report[key])
     tables['french-dictionary-coverage.tsv'] = table_text(diagnostic_report['french_dictionary_coverage']['rows'])
-    projected += sum(len(value.encode()) for value in tables.values())
+    projected += sum(_table_size(value) for value in tables.values())
     summary['interval_methods'] = dict(panel=(interval_report or {}).get('panel_method',A.PANEL_METHOD),
                                       population=(interval_report or {}).get('population_method',A.POPULATION_METHOD),
                                       panel_draws=(interval_report or {}).get('panel_draws',1000),
@@ -1357,10 +1464,13 @@ def write_outputs(groups, out, seed=0, pooling="equal-setting", guard=None, inte
         tmp.unlink(missing_ok=True)
     try:
         for name, value in tables.items():
-            guard.allocation(len(value.encode()))
+            guard.allocation(_table_size(value))
             target = out / (name+'.tmp')
             try:
-                target.write_text(value)
+                if isinstance(value, _StreamedTable):
+                    value.write(target)
+                else:
+                    target.write_text(value)
                 target.replace(out / name)
             finally:
                 target.unlink(missing_ok=True)
