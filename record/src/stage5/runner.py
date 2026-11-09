@@ -75,11 +75,18 @@ def file_hash(path):
 
 @_boundary
 def tree_bytes(path):
-    """Count regular files without following links outside the working copy."""
+    """Count regular files without following links outside the working copy. A file removed while the
+    walk runs (a concurrent scoring worker's temporary file) no longer counts (Fir rehearsal, 2026-11-08)."""
     total = 0
     for base, dirs, files in os.walk(path, followlinks=False):
         dirs[:] = [d for d in dirs if not Path(base, d).is_symlink()]
-        total += sum(Path(base, f).stat().st_size for f in files if not Path(base, f).is_symlink())
+        for f in files:
+            p = Path(base, f)
+            try:
+                if not p.is_symlink():
+                    total += p.stat().st_size
+            except FileNotFoundError:
+                continue
     return total
 
 @_boundary
