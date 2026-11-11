@@ -15,6 +15,10 @@ The project asks whether languages stay more alike in information rate (bits per
 
 Passages that record or paraphrase private correspondence with the original paper's authors are replaced by `[withheld: from private correspondence with the paper's authors]`. Withholding works on whole paragraphs, so a paragraph that mixes correspondence with other material is withheld whole; decisions lost that way are restated, without the correspondence, in the decision log's section "Restated for the public record". One explanation from the correspondence, of the paper's 2265 data points, is cited there with the author's permission.
 
+## Data
+
+The Wikipedia text the study counts, with each row's syllables, in all 17 languages, is published separately: Reynolds, B. (2026), *Syllabified Wikipedia text in 17 languages, as counted for a study of cross-linguistic information rate* [Data set], Zenodo, https://doi.org/10.5281/zenodo.24134212 (CC BY-SA 4.0). A mirror is at https://huggingface.co/datasets/BrettRey/syllabified-wikipedia.
+
 ## Checking a date
 
 Two independent records:
